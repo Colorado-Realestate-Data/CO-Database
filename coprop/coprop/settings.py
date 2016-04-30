@@ -120,6 +120,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'coprop.wsgi.application'
 
+LOGIN_URL = '/api/v1/'
+LOGIN_REDIRECT_URL = '/api/v1/'
+
 
 # Database
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
