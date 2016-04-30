@@ -3,16 +3,15 @@ from datetime import datetime
 
 
 class Property(models.Model):
-    uid = models.CharField(max_length=64, unique=True)
-    parid = models.CharField(max_length=255, null=True)
+    parid = models.CharField(max_length=255)
     county = models.CharField(max_length=255)
     timestamp = models.DateTimeField(default=datetime.now)
 
     def __str__(self):
-        return self.uid
+        return self.parid
 
     class Meta:
-        index_together = (("uid", "county"),)
+        unique_together = (("parid", "county"),)
 
 
 class Owner(models.Model):

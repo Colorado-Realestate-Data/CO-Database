@@ -10,7 +10,7 @@ class PropertyView(viewsets.ModelViewSet):
 
     queryset = Property.objects.all()
     serializer_class = PropertySerializer
-    filter_fields = ('uid', 'parid', 'county', 'timestamp')
+    filter_fields = ('parid', 'county', 'timestamp')
     ordering_fields = '__all__'
 
 
