@@ -14,3 +14,6 @@ $ python manage.py runserver
 ```
 
 Then head to http://localhost:8000/api/v1/ in your browser to get started.
+
+username: admin
+password: test1234
