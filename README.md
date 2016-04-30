@@ -9,8 +9,8 @@ $ virtualenv -p python3 env
 $ source ./env/bin/activate
 $ pip install -r requirements.txt
 $ cd coprop
-$ python manage.py migrate
-$ python manage.py runserver
+$ python manage.py migrate --settings=coprop.settings_development
+$ python manage.py runserver  --settings=coprop.settings_development
 ```
 
 Then head to http://localhost:8000/api/v1/ in your browser to get started.
