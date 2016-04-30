@@ -16,13 +16,26 @@ Including another URLconf
 from django.conf.urls import url, include
 from django.contrib import admin
 from rest_framework import routers
+from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token, \
+    verify_jwt_token
+
+from api.views import PropertyView, OwnerView, OwnerAddressView, \
+    PropertyAddressView
+
 
 rest_router = routers.DefaultRouter()
 rest_router.trailing_slash = "/?"  # added to support both / and slashless
+rest_router.register(r'property', PropertyView)
+rest_router.register(r'owner', OwnerView)
+rest_router.register(r'owner_address', OwnerAddressView)
+rest_router.register(r'property_address', PropertyAddressView)
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^api-auth/', include('rest_framework.urls',
                                namespace='rest_framework')),
     url(r'^api/v1/', include(rest_router.urls, namespace='rest_api')),
+    url(r'^token/auth/', obtain_jwt_token),
+    url(r'^token/refresh/', refresh_jwt_token),
+    url(r'^token/verify/', verify_jwt_token),
 ]

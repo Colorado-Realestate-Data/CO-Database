@@ -32,7 +32,7 @@ class Owner(models.Model):
     # Maybe use for DBA flag, Care of flag...
     other = models.CharField(max_length=255, default=None, null=True)
     timestamp = models.DateTimeField(default=datetime.now)
-    properties = models.ManyToManyField(Property)
+    properties = models.ManyToManyField(Property, default=list, blank=True)
 
     def __str__(self):
         return self.name
@@ -42,6 +42,12 @@ class Address(models.Model):
     """
     All addresses, owner (mailing) and property
     """
+    TIGET_SIDE_LEFT = 'L'
+    TIGET_SIDE_RIGHT = 'R'
+    TIGET_SIDES_CHOICES = (
+        (TIGET_SIDE_LEFT, 'Left'),
+        (TIGET_SIDE_RIGHT, 'Right'),
+    )
     idhash = models.CharField(max_length=1024, unique=True)
     street1 = models.CharField(max_length=255, default=None, null=True)
     street2 = models.CharField(max_length=255, default=None, null=True)
@@ -49,10 +55,14 @@ class Address(models.Model):
     state = models.CharField(max_length=255, default=None, null=True)
     zipcode = models.IntegerField(default=None, null=True)
     zip4 = models.IntegerField(default=None, null=True)
+    standardized = models.CharField(max_length=255, default=None, null=True)
+    tiger_line_id = models.CharField(max_length=16, default=None, null=True)
+    tiger_line_side = models.CharField(max_length=1, default=None, null=True,
+                                       choices=TIGET_SIDES_CHOICES)
     timestamp = models.DateTimeField(default=datetime.now)
 
     def __str__(self):
-        return self.street1 or self.street2
+        return '{}'.format(self.street1 or self.street2)
 
     class Meta:
         abstract = True
@@ -63,14 +73,15 @@ class PropertyAddress(Address):
     All Property Address
     """
     property = models.OneToOneField(Property, on_delete=models.CASCADE,
-                                    primary_key=True)
+                                    unique=True, related_name='address')
 
 
 class OwnerAddress(Address):
     """
     All Owner (Mailing) Address
     """
-    owner = models.ForeignKey(Owner, on_delete=models.CASCADE)
+    owner = models.ForeignKey(Owner, on_delete=models.CASCADE,
+                              related_name='addresses')
 
 
 # class Account(models.Model):
