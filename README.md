@@ -1,3 +1,6 @@
+
+[![Code Issues](https://www.quantifiedcode.com/api/v1/project/9150d466141e47abaa12d0d55c2c57a9/badge.svg)](https://www.quantifiedcode.com/app/project/9150d466141e47abaa12d0d55c2c57a9)
+
 A RESTful API written in Django for lookup of colorado property data
 
 
