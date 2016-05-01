@@ -1,3 +1,4 @@
+import hashlib
 from django.db import models
 from datetime import datetime
 
@@ -47,7 +48,7 @@ class Address(models.Model):
         (TIGET_SIDE_LEFT, 'Left'),
         (TIGET_SIDE_RIGHT, 'Right'),
     )
-    idhash = models.CharField(max_length=1024, unique=True)
+    idhash = models.CharField(max_length=128, unique=True, editable=False)
     street1 = models.CharField(max_length=255, default=None, null=True)
     street2 = models.CharField(max_length=255, default=None, null=True)
     city = models.CharField(max_length=255, default=None, null=True)
@@ -60,21 +61,28 @@ class Address(models.Model):
                                        choices=TIGET_SIDES_CHOICES)
     timestamp = models.DateTimeField(default=datetime.now)
 
+    _hashit = hashlib.sha256
+
+    def addresshasher(self):
+        """
+        mash together the address values
+        """
+        values = (self.street1, self.street2, self.city, self.state,
+                  self.zipcode, self.zip4)
+        h = ''.join(a.upper().replace(' ', '')
+                    for a in values if a is not None).lstrip('0')
+        h = self._hashit(h.encode('u8')).hexdigest()
+        return h
+
+    def save(self, *args, **kwargs):
+        self.idhash = self.addresshasher()
+        super(Address, self).save(*args, **kwargs)
+
     def __str__(self):
         return '{}'.format(self.street1 or self.street2)
 
     class Meta:
         abstract = True
-
-    # TODO: calculate idhash on save, needs to be unique. Below is calculation
-    def addresshasher(self):
-        """
-        mash together the address values
-        """
-        values = (self.street1, self.street2, self.city, self.state, self.zipcode, self.zip4)
-        h = ''.join(a.upper().replace(' ', '') for a in values if a != None)
-        h = h.lstrip('0')
-        return h
 
 
 class PropertyAddress(Address):
@@ -94,36 +102,26 @@ class OwnerAddress(Address):
 
 
 class Account(models.Model):
-    # property = models.ForeignKey(Property, related_name='account')
-    #     tax_year = models.IntegerField()
-    #     tax_type = models.CharField(max_length=64)
-    #     effective_date = models.DateField(null=True)
-    #     amount = models.FloatField()
-    #     balance = models.FloatField()
-    #     timestamp = models.DateTimeField(default=datetime.now)
     property = models.ForeignKey(Property)
     tax_year = models.IntegerField(default=None, null=False)
     tax_type = models.CharField(max_length=64)
     effective_date = models.DateField(null=False)
-    amount = models.FloatField(null=False)
-    balance = models.FloatField(null=False)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=False)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, null=False)
     timestamp = models.DateTimeField(default=datetime.now)
+
     class Meta:
-        unique_together = ('property', 'tax_year', 'tax_type', 'effective_date', 'amount', 'balance')
+        unique_together = ('property', 'tax_year', 'tax_type',
+                           'effective_date', 'amount', 'balance')
 
 
 class LienAuction(models.Model):
-    #     property = models.ForeignKey(Property, related_name='lien_auction')
-    #     face_value = models.FloatField()
-    #     name = models.CharField(max_length=255)
-    #     tax_year = models.IntegerField()
-    #     winning_bid = models.FloatField()
-    #     timestamp = models.DateTimeField(default=datetime.now)
     property = models.ForeignKey(Property)
-    face_value = models.FloatField()
+    face_value = models.DecimalField(max_digits=12, decimal_places=2)
     name = models.CharField(max_length=255)
     tax_year = models.IntegerField()
-    winning_bid = models.FloatField()
+    winning_bid = models.DecimalField(max_digits=12, decimal_places=2)
     timestamp = models.DateTimeField(default=datetime.now)
+
     class Meta:
         unique_together = ('property', 'tax_year')

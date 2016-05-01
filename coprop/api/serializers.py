@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 from api.models import Property, Owner, PropertyAddress, OwnerAddress
 
@@ -17,9 +17,6 @@ class NestedOwnerAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = OwnerAddress
         exclude = ('owner',)
-        extra_kwargs = {
-            'idhash': {'validators': []}
-        }
 
 
 class PropertyAddressSerializer(serializers.ModelSerializer):
@@ -34,9 +31,6 @@ class NestedPropertyAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyAddress
         exclude = ('property',)
-        extra_kwargs = {
-            'idhash': {'validators': []}
-        }
 
 
 class PropertySerializer(serializers.ModelSerializer):
@@ -47,13 +41,22 @@ class PropertySerializer(serializers.ModelSerializer):
         model = Property
         fields = '__all__'
 
+    @transaction.atomic()
     def create(self, validated_data):
         address_data = validated_data.pop('address', None)
         instance = super(PropertySerializer, self).create(validated_data)
         if address_data:
-            PropertyAddress.objects.create(property=instance, **address_data)
+            try:
+                PropertyAddress.objects.create(property=instance,
+                                               **address_data)
+            except IntegrityError:
+                raise serializers.ValidationError({'address': {
+                    'idhash': ["Address with this idhash already exists."]
+                    }})
+
         return instance
 
+    @transaction.atomic()
     def update(self, instance, validated_data):
         if 'address' in validated_data:
             address_data = validated_data.pop('address')
@@ -87,13 +90,21 @@ class OwnerSerializer(serializers.ModelSerializer):
         model = Owner
         fields = '__all__'
 
+    @transaction.atomic()
     def create(self, validated_data):
         addresses_data = validated_data.pop('addresses', None) or []
         instance = super(OwnerSerializer, self).create(validated_data)
         for address_data in addresses_data:
-            OwnerAddress.objects.create(owner=instance, **address_data)
+            try:
+                OwnerAddress.objects.create(owner=instance, **address_data)
+            except IntegrityError:
+                raise serializers.ValidationError({'address': {
+                    'idhash': ["Address with this idhash already exists."]
+                    }})
+
         return instance
 
+    @transaction.atomic()
     def update(self, instance, validated_data):
         if 'addresses' in validated_data:
             addresses_data = validated_data.pop('addresses') or []
