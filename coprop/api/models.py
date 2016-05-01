@@ -66,6 +66,16 @@ class Address(models.Model):
     class Meta:
         abstract = True
 
+    # TODO: calculate idhash on save, needs to be unique. Below is calculation
+    def addresshasher(self):
+        """
+        mash together the address values
+        """
+        values = (self.street1, self.street2, self.city, self.state, self.zipcode, self.zip4)
+        h = ''.join(a.upper().replace(' ', '') for a in values if a != None)
+        h = h.lstrip('0')
+        return h
+
 
 class PropertyAddress(Address):
     """
@@ -83,20 +93,37 @@ class OwnerAddress(Address):
                               related_name='addresses')
 
 
-# class Account(models.Model):
-#     property = models.ForeignKey(Property, related_name='account')
-#     tax_year = models.IntegerField()
-#     tax_type = models.CharField(max_length=64)
-#     effective_date = models.DateField(null=True)
-#     amount = models.FloatField()
-#     balance = models.FloatField()
-#     timestamp = models.DateTimeField(default=datetime.now)
+class Account(models.Model):
+    # property = models.ForeignKey(Property, related_name='account')
+    #     tax_year = models.IntegerField()
+    #     tax_type = models.CharField(max_length=64)
+    #     effective_date = models.DateField(null=True)
+    #     amount = models.FloatField()
+    #     balance = models.FloatField()
+    #     timestamp = models.DateTimeField(default=datetime.now)
+    property = models.ForeignKey(Property)
+    tax_year = models.IntegerField(default=None, null=False)
+    tax_type = models.CharField(max_length=64)
+    effective_date = models.DateField(null=False)
+    amount = models.FloatField(null=False)
+    balance = models.FloatField(null=False)
+    timestamp = models.DateTimeField(default=datetime.now)
+    class Meta:
+        unique_together = ('property', 'tax_year', 'tax_type', 'effective_date', 'amount', 'balance')
 
 
-# class LienAuction(models.Model):
-#     property = models.ForeignKey(Property, related_name='lien_auction')
-#     face_value = models.FloatField()
-#     name = models.CharField(max_length=255)
-#     tax_year = models.IntegerField()
-#     winning_bid = models.FloatField()
-#     timestamp = models.DateTimeField(default=datetime.now)
+class LienAuction(models.Model):
+    #     property = models.ForeignKey(Property, related_name='lien_auction')
+    #     face_value = models.FloatField()
+    #     name = models.CharField(max_length=255)
+    #     tax_year = models.IntegerField()
+    #     winning_bid = models.FloatField()
+    #     timestamp = models.DateTimeField(default=datetime.now)
+    property = models.ForeignKey(Property)
+    face_value = models.FloatField()
+    name = models.CharField(max_length=255)
+    tax_year = models.IntegerField()
+    winning_bid = models.FloatField()
+    timestamp = models.DateTimeField(default=datetime.now)
+    class Meta:
+        unique_together = ('property', 'tax_year')
