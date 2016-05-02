@@ -15,11 +15,12 @@ Including another URLconf
 """
 from django.conf.urls import url, include
 from django.contrib import admin
+from django.views.generic import RedirectView
 from rest_framework import routers
 from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token, \
     verify_jwt_token
 
-from api.views import PropertyView, OwnerView, OwnerAddressView, \
+from prop.rest_api.views import PropertyView, OwnerView, OwnerAddressView, \
     PropertyAddressView
 
 
@@ -31,6 +32,7 @@ rest_router.register(r'owner_address', OwnerAddressView)
 rest_router.register(r'property_address', PropertyAddressView)
 
 urlpatterns = [
+    url(r'^$', RedirectView.as_view(url='/api/v1/')),
     url(r'^admin/', admin.site.urls),
     url(r'^api-auth/', include('rest_framework.urls',
                                namespace='rest_framework')),

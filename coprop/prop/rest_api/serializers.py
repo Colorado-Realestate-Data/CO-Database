@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import IntegrityError, transaction
 
-from api.models import Property, Owner, PropertyAddress, OwnerAddress
+from prop.models import Property, Owner, PropertyAddress, OwnerAddress
 
 
 class OwnerAddressSerializer(serializers.ModelSerializer):

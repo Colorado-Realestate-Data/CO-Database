@@ -1,8 +1,8 @@
 from rest_framework import viewsets
 
-from api.serializers import PropertySerializer, OwnerSerializer, \
+from .serializers import PropertySerializer, OwnerSerializer, \
     OwnerAddressSerializer, PropertyAddressSerializer
-from api.models import Property, Owner, OwnerAddress, PropertyAddress
+from prop.models import Property, Owner, OwnerAddress, PropertyAddress
 
 
 class PropertyView(viewsets.ModelViewSet):
