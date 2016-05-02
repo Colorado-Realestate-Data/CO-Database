@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.db import IntegrityError, transaction
 
-from prop.models import Property, Owner, PropertyAddress, OwnerAddress
+from prop.models import Property, Owner, PropertyAddress, OwnerAddress, \
+    Account, LienAuction
 
 
 class OwnerAddressSerializer(serializers.ModelSerializer):
@@ -130,3 +131,15 @@ class OwnerSerializer(serializers.ModelSerializer):
                 address.delete()
 
         return super(OwnerSerializer, self).update(instance, validated_data)
+
+
+class AccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Account
+        fields = '__all__'
+
+
+class LienAuctionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LienAuction
+        fields = '__all__'

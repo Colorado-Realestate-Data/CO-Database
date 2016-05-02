@@ -21,7 +21,7 @@ from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token, \
     verify_jwt_token
 
 from prop.rest_api.views import PropertyView, OwnerView, OwnerAddressView, \
-    PropertyAddressView
+    PropertyAddressView, AccountView, LienAuctionView
 
 
 rest_router = routers.DefaultRouter()
@@ -30,6 +30,8 @@ rest_router.register(r'property', PropertyView)
 rest_router.register(r'owner', OwnerView)
 rest_router.register(r'owner_address', OwnerAddressView)
 rest_router.register(r'property_address', PropertyAddressView)
+rest_router.register(r'account', AccountView)
+rest_router.register(r'lien_auction', LienAuctionView)
 
 urlpatterns = [
     url(r'^$', RedirectView.as_view(url='/api/v1/')),
