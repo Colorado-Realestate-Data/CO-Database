@@ -1,12 +1,15 @@
 import hashlib
 from django.db import models
 from datetime import datetime
+from simple_history.models import HistoricalRecords
 
 
 class Property(models.Model):
     parid = models.CharField(max_length=255)
     county = models.CharField(max_length=255)
     timestamp = models.DateTimeField(default=datetime.now)
+
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.parid
@@ -32,10 +35,20 @@ class Owner(models.Model):
     # Maybe use for DBA flag, Care of flag...
     other = models.CharField(max_length=255, default=None, null=True)
     timestamp = models.DateTimeField(default=datetime.now)
-    properties = models.ManyToManyField(Property, default=list, blank=True)
+    properties = models.ManyToManyField(Property, through='OwnerProperties',
+                                        default=list, blank=True)
+
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
+
+
+class OwnerProperties(models.Model):
+    owner = models.ForeignKey(Owner, on_delete=models.CASCADE)
+    property = models.ForeignKey(Property, on_delete=models.CASCADE)
+
+    history = HistoricalRecords()
 
 
 class Address(models.Model):
@@ -91,6 +104,7 @@ class PropertyAddress(Address):
     """
     property = models.OneToOneField(Property, on_delete=models.CASCADE,
                                     unique=True, related_name='address')
+    history = HistoricalRecords()
 
 
 class OwnerAddress(Address):
@@ -99,6 +113,7 @@ class OwnerAddress(Address):
     """
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE,
                               related_name='addresses')
+    history = HistoricalRecords()
 
 
 class Account(models.Model):
