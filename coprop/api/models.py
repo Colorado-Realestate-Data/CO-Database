@@ -125,6 +125,10 @@ class Account(models.Model):
     balance = models.DecimalField(max_digits=12, decimal_places=2, null=False)
     timestamp = models.DateTimeField(default=datetime.now)
 
+    def __str__(self):
+        return 'Account(tax_year={0}, amount={1})'.format(self.tax_year,
+                                                          self.amount)
+
     class Meta:
         unique_together = ('property', 'tax_year', 'tax_type',
                            'effective_date', 'amount', 'balance')
@@ -137,6 +141,10 @@ class LienAuction(models.Model):
     tax_year = models.IntegerField()
     winning_bid = models.DecimalField(max_digits=12, decimal_places=2)
     timestamp = models.DateTimeField(default=datetime.now)
+
+    def __str__(self):
+        return 'LienAuction(tax_year={0}, winning_bid={1})'.format(
+            self.tax_year, self.winning_bid)
 
     class Meta:
         unique_together = ('property', 'tax_year')
