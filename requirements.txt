@@ -6,4 +6,4 @@ djangorestframework-jwt==1.8.0
 django-simple-history==1.8.1
 django-reversion=1.10.2
 psycopg2==2.6.1
-python-dateutil=2.5.3
+python-dateutil==2.5.3
