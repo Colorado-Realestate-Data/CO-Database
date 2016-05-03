@@ -1,15 +1,14 @@
 import hashlib
 from django.db import models
 from datetime import datetime
-from simple_history.models import HistoricalRecords
+from reversion import revisions as reversion
 
 
+@reversion.register()
 class Property(models.Model):
     parid = models.CharField(max_length=255)
     county = models.CharField(max_length=255)
     timestamp = models.DateTimeField(default=datetime.now)
-
-    history = HistoricalRecords()
 
     def __str__(self):
         return self.parid
@@ -18,6 +17,7 @@ class Property(models.Model):
         unique_together = (("parid", "county"),)
 
 
+@reversion.register()
 class Owner(models.Model):
     """
     This is a list of all owners
@@ -35,23 +35,10 @@ class Owner(models.Model):
     # Maybe use for DBA flag, Care of flag...
     other = models.CharField(max_length=255, default=None, null=True)
     timestamp = models.DateTimeField(default=datetime.now)
-    properties = models.ManyToManyField(Property, through='OwnerProperties',
-                                        default=list, blank=True)
-
-    history = HistoricalRecords()
+    properties = models.ManyToManyField(Property, default=list, blank=True)
 
     def __str__(self):
         return self.name
-
-
-class OwnerProperties(models.Model):
-    owner = models.ForeignKey(Owner, on_delete=models.CASCADE)
-    property = models.ForeignKey(Property, on_delete=models.CASCADE)
-
-    history = HistoricalRecords()
-
-    class Meta:
-        auto_created = True
 
 
 class Address(models.Model):
@@ -85,7 +72,7 @@ class Address(models.Model):
         """
         values = (self.street1, self.street2, self.city, self.state,
                   self.zipcode, self.zip4)
-        h = ''.join(a.upper().replace(' ', '')
+        h = ''.join(str(a).upper().replace(' ', '')
                     for a in values if a is not None).lstrip('0')
         h = self._hashit(h.encode('u8')).hexdigest()
         return h
@@ -101,22 +88,22 @@ class Address(models.Model):
         abstract = True
 
 
+@reversion.register()
 class PropertyAddress(Address):
     """
     All Property Address
     """
     property = models.OneToOneField(Property, on_delete=models.CASCADE,
                                     unique=True, related_name='address')
-    history = HistoricalRecords()
 
 
+@reversion.register()
 class OwnerAddress(Address):
     """
     All Owner (Mailing) Address
     """
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE,
                               related_name='addresses')
-    history = HistoricalRecords()
 
 
 class Account(models.Model):

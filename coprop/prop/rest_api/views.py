@@ -1,11 +1,13 @@
+import json
 from dateutil import parser
 from rest_framework import viewsets, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import detail_route
+from reversion import revisions
 
 from .serializers import PropertySerializer, OwnerSerializer, \
     OwnerAddressSerializer, PropertyAddressSerializer, AccountSerializer, \
-    LienAuctionSerializer, PropertyHistorySerializer, OwnerHistorySerializer
+    LienAuctionSerializer
 from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
     Account, LienAuction
 
@@ -13,55 +15,37 @@ from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
 class HistoricalViewMixin(object):
 
     MAX_HISTORY_RECORDS_NUM = 100
-    history_serializer_class = None
-    history_types_map = {
-        'created': '+',
-        'changed': '~',
-        'deleted': '-',
-    }
-
-    def filter_history_by_param(self, queryset, request):
-        return queryset
 
     def get_history_filters_by_params(self, request, queryset):
         params = request.query_params
         query_args = {}
-        for k in ['history_date__gte', 'history_date__lte']:
+        for k, op in [('date__gte', 'gte'), ('date__lte', 'lte')]:
             if k in params:
                 try:
                     dt = parser.parse(params[k])
                 except ValueError:
                     raise serializers.ValidationError(
                         {k: 'Invalid date format'})
-                query_args[k] = dt
-
-        if 'history_type__in' in params:
-            htypes = [self.history_types_map.get(t.lower()) for t in
-                      params['history_type__in'].split(',')]
-            valid_htypes = {h.lower() for h in self.history_types_map.keys()}
-            if not set(htypes).issubset(set(self.history_types_map.values())):
-                msg = 'valid valuses are: {}'.format(valid_htypes)
-                raise serializers.ValidationError({'history_type__in': msg})
-
-            query_args['history_type__in'] = htypes
+                query_args['revision__date_created__' + op] = dt
 
         return queryset.filter(**query_args)
 
     @detail_route(methods=['get'])
     def history(self, request, pk=None):
+        revisions.get_for_object
         instance = self.get_object()
-        queryset = instance.history.order_by('history_type').all()
+        queryset = revisions.get_for_object(instance)
         queryset = self.get_history_filters_by_params(request, queryset)
 
-        SerializerClass = self.history_serializer_class or \
-            self.get_serializer_class()
         result = []
         for h in queryset[:self.MAX_HISTORY_RECORDS_NUM]:
+            json_data = h.serialized_data
+            obj = json.loads(json_data)[0]["fields"]
             result.append({
-                'object': SerializerClass(h.history_object).data,
-                'history_id': h.history_id,
-                'history_date': h.history_date,
-                'history_type': h.get_history_type_display()
+                # 'object': SerializerClass(h.object_version.object).data,
+                'object': obj,
+                'id': h.pk,
+                'date': h.revision.date_created
             })
         return Response(result)
 
@@ -73,7 +57,6 @@ class PropertyView(viewsets.ModelViewSet, HistoricalViewMixin):
     serializer_class = PropertySerializer
     filter_fields = ('parid', 'county', 'timestamp')
     ordering_fields = '__all__'
-    history_serializer_class = PropertyHistorySerializer
 
 
 class OwnerView(viewsets.ModelViewSet, HistoricalViewMixin):
@@ -84,7 +67,6 @@ class OwnerView(viewsets.ModelViewSet, HistoricalViewMixin):
     filter_fields = ('name', 'dba', 'ownico', 'other', 'timestamp',
                      'properties')
     ordering_fields = '__all__'
-    history_serializer_class = OwnerHistorySerializer
 
 
 class OwnerAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
