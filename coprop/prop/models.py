@@ -50,6 +50,9 @@ class OwnerProperties(models.Model):
 
     history = HistoricalRecords()
 
+    class Meta:
+        auto_created = True
+
 
 class Address(models.Model):
     """

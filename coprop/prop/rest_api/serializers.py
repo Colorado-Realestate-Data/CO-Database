@@ -34,6 +34,19 @@ class NestedPropertyAddressSerializer(serializers.ModelSerializer):
         exclude = ('property',)
 
 
+class PropertyHistorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Property
+
+
+class OwnerHistorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Owner
+        exclude = ('properties',)
+
+
 class PropertySerializer(serializers.ModelSerializer):
 
     address = NestedPropertyAddressSerializer(required=False, allow_null=True)
@@ -86,6 +99,8 @@ class OwnerSerializer(serializers.ModelSerializer):
 
     addresses = NestedOwnerAddressSerializer(required=False, allow_null=True,
                                              many=True)
+    properties = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Property.objects)
 
     class Meta:
         model = Owner
