@@ -51,7 +51,6 @@ class Address(models.Model):
         (TIGET_SIDE_LEFT, 'Left'),
         (TIGET_SIDE_RIGHT, 'Right'),
     )
-    idhash = models.CharField(max_length=128, unique=True, editable=False)
     street1 = models.CharField(max_length=255, default=None, null=True)
     street2 = models.CharField(max_length=255, default=None, null=True)
     city = models.CharField(max_length=255, default=None, null=True)
@@ -93,6 +92,7 @@ class PropertyAddress(Address):
     """
     All Property Address
     """
+    idhash = models.CharField(max_length=128, unique=True, editable=False)
     property = models.OneToOneField(Property, on_delete=models.CASCADE,
                                     unique=True, related_name='address')
 
@@ -102,8 +102,12 @@ class OwnerAddress(Address):
     """
     All Owner (Mailing) Address
     """
+    idhash = models.CharField(max_length=128, editable=False)
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE,
                               related_name='addresses')
+
+    class Meta:
+        unique_together = ('idhash', 'owner')
 
 
 class Account(models.Model):
