@@ -10,6 +10,7 @@ from .serializers import PropertySerializer, OwnerSerializer, \
     LienAuctionSerializer
 from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
     Account, LienAuction
+from prop.filters import PropertyFilter, AccountFilter, LienAuctionFilter
 
 
 class HistoricalViewMixin(object):
@@ -55,8 +56,8 @@ class PropertyView(viewsets.ModelViewSet, HistoricalViewMixin):
 
     queryset = Property.objects.all()
     serializer_class = PropertySerializer
-    filter_fields = ('parid', 'county', 'timestamp')
     ordering_fields = '__all__'
+    filter_class = PropertyFilter
 
 
 class OwnerView(viewsets.ModelViewSet, HistoricalViewMixin):
@@ -96,9 +97,8 @@ class AccountView(viewsets.ModelViewSet):
 
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
-    filter_fields = ('property', 'tax_year', 'tax_type', 'effective_date',
-                     'amount', 'balance', 'timestamp')
     ordering_fields = '__all__'
+    filter_class = AccountFilter
 
 
 class LienAuctionView(viewsets.ModelViewSet):
@@ -106,6 +106,5 @@ class LienAuctionView(viewsets.ModelViewSet):
 
     queryset = LienAuction.objects.all()
     serializer_class = LienAuctionSerializer
-    filter_fields = ('property', 'face_value', 'tax_year', 'name',
-                     'winning_bid', 'timestamp')
     ordering_fields = '__all__'
+    filter_class = LienAuctionFilter
