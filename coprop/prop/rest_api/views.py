@@ -10,7 +10,7 @@ from .serializers import PropertySerializer, OwnerSerializer, \
     LienAuctionSerializer
 from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
     Account, LienAuction
-from prop.filters import PropertyFilter, AccountFilter, LienAuctionFilter
+from .filters import PropertyFilter, AccountFilter, LienAuctionFilter
 
 
 class HistoricalViewMixin(object):
