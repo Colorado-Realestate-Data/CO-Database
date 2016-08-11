@@ -1,5 +1,7 @@
 from rest_framework import pagination
 from rest_framework.response import Response
+from rest_framework.views import exception_handler
+from rest_framework import exceptions
 
 
 class CustomPagination(pagination.PageNumberPagination):
@@ -26,3 +28,16 @@ class CustomPagination(pagination.PageNumberPagination):
             },
             'results': data
         })
+
+
+def custom_rest_exception_handler(exc, context):
+    ''' Custom rest api exception handler '''
+    response = exception_handler(exc, context)
+    if isinstance(exc, exceptions.NotAuthenticated):
+        response.status_code = 401
+    if isinstance(exc, exceptions.ValidationError) and \
+            ('already exists' in str(exc) or
+             'must make a unique set' in str(exc)):
+        response.status_code = 409
+
+    return response

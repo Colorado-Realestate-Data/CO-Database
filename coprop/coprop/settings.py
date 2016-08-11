@@ -56,6 +56,7 @@ MIDDLEWARE_CLASSES = [
 ]
 
 REST_FRAMEWORK = {
+    'EXCEPTION_HANDLER': 'coprop.custom_rest_exception_handler',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.DjangoModelPermissions'
     ],
@@ -92,7 +93,7 @@ JWT_AUTH = {
     'JWT_VERIFY': True,
     'JWT_VERIFY_EXPIRATION': True,
     'JWT_LEEWAY': 0,
-    'JWT_EXPIRATION_DELTA': datetime.timedelta(seconds=300),
+    'JWT_EXPIRATION_DELTA': datetime.timedelta(seconds=36000),
     'JWT_AUDIENCE': None,
     'JWT_ISSUER': None,
 

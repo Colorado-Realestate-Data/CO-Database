@@ -55,8 +55,8 @@ class Address(models.Model):
     street2 = models.CharField(max_length=255, default=None, null=True)
     city = models.CharField(max_length=255, default=None, null=True)
     state = models.CharField(max_length=255, default=None, null=True)
-    zipcode = models.IntegerField(default=None, null=True)
-    zip4 = models.IntegerField(default=None, null=True)
+    zipcode = models.CharField(max_length=15, default=None, null=True)
+    zip4 = models.CharField(max_length=15, default=None, null=True)
     standardized = models.CharField(max_length=255, default=None, null=True)
     tiger_line_id = models.CharField(max_length=16, default=None, null=True)
     tiger_line_side = models.CharField(max_length=1, default=None, null=True,
@@ -73,8 +73,10 @@ class Address(models.Model):
                   self.zipcode, self.zip4)
         h = ''.join(str(a).upper().replace(' ', '')
                     for a in values if a is not None).lstrip('0')
-        h = self._hashit(h.encode('u8')).hexdigest()
-        return h
+        if not h:
+            return None
+
+        return self._hashit(h.encode('u8')).hexdigest()
 
     def save(self, *args, **kwargs):
         self.idhash = self.addresshasher()
@@ -92,7 +94,8 @@ class PropertyAddress(Address):
     """
     All Property Address
     """
-    idhash = models.CharField(max_length=128, unique=True, editable=False)
+    idhash = models.CharField(max_length=128, unique=True, editable=False,
+                              null=True)
     property = models.OneToOneField(Property, on_delete=models.CASCADE,
                                     unique=True, related_name='address')
 
@@ -102,7 +105,7 @@ class OwnerAddress(Address):
     """
     All Owner (Mailing) Address
     """
-    idhash = models.CharField(max_length=128, editable=False)
+    idhash = models.CharField(max_length=128, editable=False, null=True)
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE,
                               related_name='addresses')
 
