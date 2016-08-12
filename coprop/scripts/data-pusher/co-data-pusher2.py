@@ -1,10 +1,9 @@
+import sys
 import csv
 import config
 from co_rest_client import RestClient, RestResponseException
 
 client = RestClient(config.API_URL, config.API_USERNAME, config.API_PASSWORD)
-owners_csv_path = './co-data2/Account-Public-Extract-0-acers.csv'
-accounts_csv_path = './co-data2/GrandCoAcccount.csv'
 
 
 def strip_dict(d):
@@ -93,6 +92,12 @@ def add_account(row, property_parids):
 
 
 def main():
+    if len(sys.argv) != 3:
+        print('Invalid parameters! \nUsage: python co-data-pusher2.py '
+              '<PROPERTY_OWNERS_FILE_PATH> <ACCOUNTS_FILE_PATH>')
+        sys.exit(1)
+    owners_csv_path = sys.argv[1]
+    accounts_csv_path = sys.argv[2]
     property_parids = {}
     with open(owners_csv_path) as csvfile:
         reader = csv.DictReader(csvfile, delimiter='\t')
