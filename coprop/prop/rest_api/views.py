@@ -1,8 +1,9 @@
-import json
+import simplejson as json
 from dateutil import parser
 from rest_framework import viewsets, serializers
 from rest_framework.response import Response
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import detail_route, list_route
+from django.db.models import Sum
 from reversion import revisions
 
 from .serializers import PropertySerializer, OwnerSerializer, \
@@ -10,7 +11,8 @@ from .serializers import PropertySerializer, OwnerSerializer, \
     LienAuctionSerializer
 from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
     Account, LienAuction
-from .filters import PropertyFilter, AccountFilter, LienAuctionFilter
+from .filters import PropertyFilter, AccountFilter, LienAuctionFilter, \
+    AccountTaxTypeSummaryFilter
 
 
 class HistoricalViewMixin(object):
@@ -99,6 +101,15 @@ class AccountView(viewsets.ModelViewSet):
     serializer_class = AccountSerializer
     ordering_fields = '__all__'
     filter_class = AccountFilter
+
+    @list_route()
+    def tax_type_summary(self, request, **kwargs):
+        qs = self.get_queryset().values('tax_type'
+                                        ).annotate(amounts=Sum('amount'))
+        filters = AccountTaxTypeSummaryFilter(request.query_params,
+                                              queryset=qs)
+        results = [r for r in filters]
+        return Response(results)
 
 
 class LienAuctionView(viewsets.ModelViewSet):
