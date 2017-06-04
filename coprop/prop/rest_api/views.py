@@ -4,7 +4,7 @@ from rest_framework import viewsets, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import detail_route, list_route
 from django.db.models import Sum
-from reversion import revisions
+from reversion.models import Version
 
 from .serializers import PropertySerializer, OwnerSerializer, \
     OwnerAddressSerializer, PropertyAddressSerializer, AccountSerializer, \
@@ -27,17 +27,15 @@ class HistoricalViewMixin(object):
                 try:
                     dt = parser.parse(params[k])
                 except ValueError:
-                    raise serializers.ValidationError(
-                        {k: 'Invalid date format'})
+                    raise serializers.ValidationError({k: 'Invalid date format'})
                 query_args['revision__date_created__' + op] = dt
 
         return queryset.filter(**query_args)
 
     @detail_route(methods=['get'])
     def history(self, request, pk=None):
-        revisions.get_for_object
         instance = self.get_object()
-        queryset = revisions.get_for_object(instance)
+        queryset = Version.objects.get_for_object(instance)
         queryset = self.get_history_filters_by_params(request, queryset)
 
         result = []
@@ -45,7 +43,6 @@ class HistoricalViewMixin(object):
             json_data = h.serialized_data
             obj = json.loads(json_data)[0]["fields"]
             result.append({
-                # 'object': SerializerClass(h.object_version.object).data,
                 'object': obj,
                 'id': h.pk,
                 'date': h.revision.date_created
@@ -59,6 +56,7 @@ class PropertyView(viewsets.ModelViewSet, HistoricalViewMixin):
     queryset = Property.objects.all()
     serializer_class = PropertySerializer
     ordering_fields = '__all__'
+    ordering = 'id'
     filter_class = PropertyFilter
 
 
@@ -67,8 +65,8 @@ class OwnerView(viewsets.ModelViewSet, HistoricalViewMixin):
 
     queryset = Owner.objects.all()
     serializer_class = OwnerSerializer
-    filter_fields = ('name', 'dba', 'ownico', 'other', 'timestamp',
-                     'properties')
+    filter_fields = ('name', 'dba', 'ownico', 'other', 'timestamp', 'properties')
+    ordering = 'id'
     ordering_fields = '__all__'
 
 
@@ -77,10 +75,10 @@ class OwnerAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
 
     queryset = OwnerAddress.objects.all()
     serializer_class = OwnerAddressSerializer
-    filter_fields = ('idhash', 'street1', 'street2', 'city', 'state',
-                     'zipcode', 'zip4', 'standardized', 'tiger_line_id',
-                     'tiger_line_side', 'timestamp', 'owner')
+    filter_fields = ('idhash', 'street1', 'street2', 'city', 'state', 'zipcode', 'zip4', 'standardized',
+                     'tiger_line_id', 'tiger_line_side', 'timestamp', 'owner')
     ordering_fields = '__all__'
+    ordering = 'id'
 
 
 class PropertyAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
@@ -88,10 +86,10 @@ class PropertyAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
 
     queryset = PropertyAddress.objects.all()
     serializer_class = PropertyAddressSerializer
-    filter_fields = ('idhash', 'street1', 'street2', 'city', 'state',
-                     'zipcode', 'zip4', 'standardized', 'tiger_line_id',
-                     'tiger_line_side', 'timestamp', 'property')
+    filter_fields = ('idhash', 'street1', 'street2', 'city', 'state', 'zipcode', 'zip4', 'standardized',
+                     'tiger_line_id', 'tiger_line_side', 'timestamp', 'property')
     ordering_fields = '__all__'
+    ordering = 'id'
 
 
 class AccountView(viewsets.ModelViewSet):
@@ -101,14 +99,13 @@ class AccountView(viewsets.ModelViewSet):
     serializer_class = AccountSerializer
     ordering_fields = '__all__'
     filter_class = AccountFilter
+    ordering = 'id'
 
     @list_route()
     def tax_type_summary(self, request, **kwargs):
-        qs = self.get_queryset().values('tax_type'
-                                        ).annotate(amounts=Sum('amount'))
-        filters = AccountTaxTypeSummaryFilter(request.query_params,
-                                              queryset=qs)
-        results = [r for r in filters]
+        qs = self.get_queryset().values('tax_type').annotate(amounts=Sum('amount'))
+        filters = AccountTaxTypeSummaryFilter(request.query_params, queryset=qs)
+        results = [r for r in filters.qs]
         return Response(results)
 
 
@@ -119,3 +116,4 @@ class LienAuctionView(viewsets.ModelViewSet):
     serializer_class = LienAuctionSerializer
     ordering_fields = '__all__'
     filter_class = LienAuctionFilter
+    ordering = 'id'

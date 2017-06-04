@@ -1,4 +1,4 @@
-from coprop.settings import *
+from .base import *
 
 DATABASES = {
     'default': {
