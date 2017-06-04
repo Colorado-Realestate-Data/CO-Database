@@ -56,8 +56,6 @@ sudo cp $DJANGODIR/utils/nginx.conf /etc/nginx/sites-available/$NAME.conf
 sudo ln -sf /etc/nginx/sites-available/$NAME.conf /etc/nginx/sites-enabled/$NAME.conf
 cp $DJANGODIR/utils/gunicorn_start.sh $ENVDIR/bin/
 chmod +x $ENVDIR/bin/gunicorn_start.sh
-cp $DJANGODIR/utils/celery_start.sh $ENVDIR/bin/
-chmod +x $ENVDIR/bin/celery_start.sh
 
 cd $DJANGODIR
 pip install -r requirements.txt
@@ -67,7 +65,6 @@ python manage.py migrate --settings=$DJANGO_SETTINGS_MODULE --noinput
 python manage.py collectstatic --settings=$DJANGO_SETTINGS_MODULE --noinput
 sudo service supervisor restart
 sudo supervisorctl restart $NAME
-sudo supervisorctl restart $NAME-celery
 sudo service nginx restart
 
 echo
