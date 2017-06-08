@@ -26,6 +26,8 @@ class Command(BaseCommand):
 
     help = "download csv records from http://assessor.co.{COUNTY}.co.us site"
     _general_session = None
+    _finished_threads = False
+    _finished_counter = 0
 
     download_path = None
     county = None
@@ -40,6 +42,7 @@ class Command(BaseCommand):
     CHECK_REPORT_INTERVAL = 5
     PIVOT_INIT_VALUE = 1000
     THREADS_COUNT = 30
+    SHOW_INFO_INTERVAL = 10
 
     @property
     def general_session(self):
@@ -67,16 +70,16 @@ class Command(BaseCommand):
         parser.add_argument('--download-path', action='store', type=str)
         parser.add_argument('--download-dir', action='store', type=str, default=self.DOWNLOAD_DIR)
         parser.add_argument('--check-report-interval', action='store', type=int, default=self.CHECK_REPORT_INTERVAL)
-        parser.add_argument('--pivot-init', action='store', type=int, default=self.PIVOT_INIT_VALUE)
         parser.add_argument('--threads', action='store', type=int, default=self.THREADS_COUNT)
+        parser.add_argument('--show-info-interval', action='store', type=int, default=self.SHOW_INFO_INTERVAL)
         parser.add_argument('--noinput', action='store_true')
 
     def handle(self, *args, **options):
-        self.finished_counter = 0
+        self._finished_counter = 0
         self.county = options.get('county')
         self.threads = options.get('threads')
+        self.show_info_interval = options.get('show_info_interval')
         self.check_report_interval = options.get('check_report_interval')
-        self.pivot_init = options.get('pivot_init')
         self.download_path = os.path.join(options.get('download_path') or '',
                                           options.get('download_dir') or self.DOWNLOAD_DIR)
         self.init_url = self.INIT_URL.format(county=self.county)
@@ -98,17 +101,19 @@ class Command(BaseCommand):
         print('OK')
         print('++ Distributing downloads [{}] pages between [{}] threads ...'.format(self.total_page, self.threads))
         print('++ [pages_per_thread = {}]'.format(self.pages_per_thread))
-        # print(self._scrap_total_page(0, 6))
+        # print(self.discover_best_actual_value(0))
         # return
         start_value = 0
         threads = []
         while True:
             print('++ Discovering best actual value from [{}] ...'.format(start_value))
             t1 = timezone.now()
-            next_value = self.discover_best_actual_value(start_value, pivot=self.pivot_init)
+            next_value = self.discover_best_actual_value(start_value)
             duration = (timezone.now() - t1).total_seconds()
             print('++ Discovered [{}] for [{}] in [{}] Seconds'.format(next_value, start_value, duration))
             t = Thread(target=self.download_range_data, args=(start_value, next_value))
+            if not threads:
+                Thread(target=self.start_info_mainloop, args=()).start()
             threads.append(t)
             t.start()
             if next_value is None:
@@ -117,29 +122,39 @@ class Command(BaseCommand):
 
         for thread in threads:
             thread.join()
+        self._finished_threads = True
 
-    def discover_best_actual_value(self, start_value, pivot=1000):
+    def start_info_mainloop(self):
+        if not self.show_info_interval:
+            return
+        while not self._finished_threads:
+            time.sleep(self.show_info_interval)
+            print ('*********** Finished = {} **************'.format(self._finished_counter))
+
+    def discover_best_actual_value(self, start_value):
         lower_bound = start_value
-        upper_bound = start_value + pivot
+        upper_bound = 2 * start_value + 1
         max_upper_bound = None
         p = None
+        rnd = 0
         while True:
             if upper_bound == lower_bound:
                 return upper_bound
 
             prev_p = p
             p = self._scrap_total_page(start_value, upper_bound)
+            rnd += 1
+            print('$$$ Round=[{}]: start_value=[{}], upper_bound=[{}]'.format(rnd, start_value, upper_bound))
             if p == 0:
                 return None
-            if (max_upper_bound is None) and (p == prev_p):
-                if self._scrap_total_page(upper_bound, None) == 0:
+            if (max_upper_bound is None) and (p == prev_p) and (self._scrap_total_page(upper_bound, None) == 0):
                     return None
 
             if 0 <= p - self.pages_per_thread <= 1:
                 return upper_bound
             if p < self.pages_per_thread:
                 if max_upper_bound is None:
-                    lower_bound, upper_bound = upper_bound, 2 * upper_bound - lower_bound
+                    lower_bound, upper_bound = upper_bound, 2 * upper_bound
                 else:
                     lower_bound = upper_bound
                     upper_bound = upper_bound + (max_upper_bound - upper_bound) // 2
@@ -148,6 +163,12 @@ class Command(BaseCommand):
                 upper_bound = lower_bound + (upper_bound - lower_bound) // 2
 
     def download_range_data(self, start_value, end_value):
+        try:
+            return self._download_range_data(start_value, end_value)
+        finally:
+            self._finished_counter += 1
+
+    def _download_range_data(self, start_value, end_value):
         start_time = timezone.now()
         range_str = '[{} - {}]'.format(start_value, end_value)
         print('+++ {}: Starting at [{}] ...'.format(range_str, start_time))
@@ -185,7 +206,6 @@ class Command(BaseCommand):
             break
         end_time = timezone.now()
         duration = (end_time - start_time).total_seconds()
-        self.finished_counter += 1
         print('+++ {}: Finished at [{}] - Duration={} Seconds!'.format(range_str, end_time, duration))
 
     def _download_file(self, session, url, destfile):
@@ -212,10 +232,9 @@ class Command(BaseCommand):
         if 'No results found for query' in search_result:
             return 0
         bs = BeautifulSoup(search_result, 'html.parser')
-        pagination_title = bs.find(id='middle').find(text=re.compile('^Showing .+ results on .+ page'))
+        pagination_title = bs.find(id='middle').find(text=re.compile('^Showing .+ result(s?) on .+ page'))
         if not pagination_title:
             raise Exception('!!! {}: Cannot scrap pagination title'.format(range_str))
-        re.findall('\d+', pagination_title)
         pages = re.findall('(\d+) page', pagination_title)
         if not pages:
             raise Exception('!!! {}: Cannot scrap total pages'.format(range_str))
