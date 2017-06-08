@@ -4,11 +4,15 @@ import sys
 import csv
 import time
 import shutil
+import traceback
 from threading import Thread
 
 import math
 import requests
 import functools
+
+from retrying import retry
+
 try:
     from urllib.parse import urljoin
 except ImportError:
@@ -29,6 +33,8 @@ class Command(BaseCommand):
     _finished_threads = False
     _finished_counter = 0
 
+    failed_parts = []
+    success_parts = []
     download_path = None
     county = None
     counter = 0
@@ -41,8 +47,9 @@ class Command(BaseCommand):
     DOWNLOAD_DIR = 'co-downloads'
     CHECK_REPORT_INTERVAL = 5
     PIVOT_INIT_VALUE = 1000
-    THREADS_COUNT = 30
+    PARTS_COUNT = 30
     SHOW_INFO_INTERVAL = 10
+    PARTS_WAIT_SECONDS = 300
 
     @property
     def general_session(self):
@@ -70,14 +77,25 @@ class Command(BaseCommand):
         parser.add_argument('--download-path', action='store', type=str)
         parser.add_argument('--download-dir', action='store', type=str, default=self.DOWNLOAD_DIR)
         parser.add_argument('--check-report-interval', action='store', type=int, default=self.CHECK_REPORT_INTERVAL)
-        parser.add_argument('--threads', action='store', type=int, default=self.THREADS_COUNT)
+        parser.add_argument('--parts', action='store', type=int, default=self.PARTS_COUNT)
+        parser.add_argument('--parts-wait-seconds', action='store', type=int, default=self.PARTS_WAIT_SECONDS)
         parser.add_argument('--show-info-interval', action='store', type=int, default=self.SHOW_INFO_INTERVAL)
+        parser.add_argument('--use-thread', action='store_true')
         parser.add_argument('--noinput', action='store_true')
 
     def handle(self, *args, **options):
+        try:
+            self._handle(*args, **options)
+        except KeyboardInterrupt:
+            print('Canceled!')
+            sys.exit(1)
+
+    def _handle(self, *args, **options):
         self._finished_counter = 0
         self.county = options.get('county')
-        self.threads = options.get('threads')
+        self.parts = options.get('parts')
+        self.use_thread = options.get('use_thread')
+        self.parts_wait_seconds = options.get('parts_wait_seconds')
         self.show_info_interval = options.get('show_info_interval')
         self.check_report_interval = options.get('check_report_interval')
         self.download_path = os.path.join(options.get('download_path') or '',
@@ -97,25 +115,33 @@ class Command(BaseCommand):
         os.makedirs(self.download_temp_dir)
         print('++ Scrapping Total Pages ... ==> ', end='')
         self.total_page = self._scrap_total_page(0, None)
-        self.pages_per_thread = int(math.ceil(self.total_page / self.threads))
+        self.pages_per_thread = int(math.ceil(self.total_page / self.parts))
         print('OK')
-        print('++ Distributing downloads [{}] pages between [{}] threads ...'.format(self.total_page, self.threads))
+        print('++ Distributing downloads [{}] pages between [{}] threads ...'.format(self.total_page, self.parts))
         print('++ [pages_per_thread = {}]'.format(self.pages_per_thread))
         # print(self.discover_best_actual_value(0))
         # return
         start_value = 0
         threads = []
+        self.failed_parts = []
+        self.success_parts = []
         while True:
             print('++ Discovering best actual value from [{}] ...'.format(start_value))
             t1 = timezone.now()
             next_value = self.discover_best_actual_value(start_value)
             duration = (timezone.now() - t1).total_seconds()
             print('++ Discovered [{}] for [{}] in [{}] Seconds'.format(next_value, start_value, duration))
-            t = Thread(target=self.download_range_data, args=(start_value, next_value))
-            if not threads:
-                Thread(target=self.start_info_mainloop, args=()).start()
-            threads.append(t)
-            t.start()
+            if self.use_thread:
+                t = Thread(target=self.download_range_data, args=(start_value, next_value))
+                if not threads:
+                    Thread(target=self.start_info_mainloop, args=()).start()
+                threads.append(t)
+                t.start()
+            else:
+                self.download_range_data(start_value, next_value)
+                print('*********** Finished = {} **************'.format(self._finished_counter))
+                print('!!! waiting for [{}] seconds ...'.format(self.parts_wait_seconds))
+                time.sleep(self.parts_wait_seconds)
             if next_value is None:
                 break
             start_value = next_value + 1
@@ -131,6 +157,7 @@ class Command(BaseCommand):
             time.sleep(self.show_info_interval)
             print ('*********** Finished = {} **************'.format(self._finished_counter))
 
+    @retry(wait_exponential_multiplier=10000, wait_exponential_max=60000, stop_max_attempt_number=10)
     def discover_best_actual_value(self, start_value):
         lower_bound = start_value
         upper_bound = 2 * start_value + 1
@@ -164,7 +191,15 @@ class Command(BaseCommand):
 
     def download_range_data(self, start_value, end_value):
         try:
-            return self._download_range_data(start_value, end_value)
+            self._download_range_data(start_value, end_value)
+            self.success_parts.append((start_value, end_value))
+        except KeyboardInterrupt:
+            print('Canceled!')
+            sys.exit(1)
+        except Exception as e:
+            self.failed_parts.append((start_value, end_value))
+            print('!!! Unexpected Exception for download range [{} - {}]'.format(start_value, next_value))
+            traceback.print_exc()
         finally:
             self._finished_counter += 1
 
@@ -197,9 +232,13 @@ class Command(BaseCommand):
             if 'Your report is being generated' in check_result:
                 time.sleep(self.check_report_interval)
                 continue
-            print('+++ {}: Downloading Report ...'.format(range_str))
             bs = BeautifulSoup(check_result, 'html.parser')
-            download_endpoint = bs.find('a').get('href')
+            a = bs.find('a')
+            if not a:
+                print('!!! {}: Not found Download link in content: {}'.format(range_str, check_result))
+                raise Exception('Not found Download link'.format(range_str, check_result))
+            print('+++ {}: Downloading Report ...'.format(range_str))
+            download_endpoint = a.get('href')
             download_url = urljoin(self.BASE_URL, download_endpoint)
             destfile = os.path.join(self.download_temp_dir, '{}-{}.csv'.format(start_value, end_value))
             self._download_file(session, download_url, destfile)
