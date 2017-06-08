@@ -1,7 +1,7 @@
 import sys
 import csv
 import config
-from co_rest_client import RestClient, RestResponseException
+from coprop.helpers.rest_client import RestClient, RestResponseException
 
 client = RestClient(config.API_URL, config.API_USERNAME, config.API_PASSWORD)
 

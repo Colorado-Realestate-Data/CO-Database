@@ -49,7 +49,7 @@ class RestClient(object):
         headers.update(extra_headers or {})
         return headers
 
-    def post(self, path, data='', files=None, headers=None, auth=True,
+    def post(self, path, data=None, files=None, headers=None, auth=True,
              raw_response=False, **kwargs):
         headers = self.make_headers(extra_headers=headers, auth=auth)
         is_json = 'application/json' in (headers.get('content-type') or '')
@@ -60,7 +60,7 @@ class RestClient(object):
             res = self.get_json(res)
         return res
 
-    def delete(self, path, data='', headers=None, auth=True,
+    def delete(self, path, data=None, headers=None, auth=True,
                raw_response=False, **kwargs):
         headers = self.make_headers(extra_headers=headers, auth=auth)
         is_json = 'application/json' in (headers.get('content-type') or '')
@@ -71,7 +71,7 @@ class RestClient(object):
             res = self.get_json(res)
         return res
 
-    def put(self, path, data='', files=None, headers=None, auth=True,
+    def put(self, path, data=None, files=None, headers=None, auth=True,
             raw_response=False, **kwargs):
         headers = self.make_headers(extra_headers=headers, auth=auth)
         is_json = 'application/json' in (headers.get('content-type') or '')
@@ -82,8 +82,9 @@ class RestClient(object):
             res = self.get_json(res)
         return res
 
-    def get(self, path, params={}, headers=None, auth=True,
+    def get(self, path, params=None, headers=None, auth=True,
             raw_response=False, **kwargs):
+        params = params or {}
         url_parts = urlparse(path)
         path = url_parts.path
         query = dict(parse_qsl(url_parts.query))

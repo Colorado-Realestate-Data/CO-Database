@@ -66,3 +66,6 @@ target/
 
 #sqlite db
 *.sqlite3
+
+# tmp dirs
+co-downloads
