@@ -1,16 +1,16 @@
+import glob
 import os
 import re
 import sys
-import csv
 import time
 import shutil
 import traceback
-from threading import Thread
 
 import math
 import requests
 import functools
 
+from django.conf import settings
 from retrying import retry
 
 try:
@@ -30,12 +30,13 @@ class Command(BaseCommand):
 
     help = "download csv records from http://assessor.co.{COUNTY}.co.us site"
     _general_session = None
-    _finished_threads = False
     _finished_counter = 0
-
+    finished_parts = False
+    start_value = 0
+    next_value = None
     failed_parts = []
-    success_parts = []
     download_path = None
+    export_file = None
     county = None
     counter = 0
     REPORT_TEMPLATE_ID = 'tax.account.extract.AccountPublic'
@@ -43,8 +44,9 @@ class Command(BaseCommand):
     LOGIN_URL = 'http://assessor.co.{county}.co.us/assessor/web/loginPOST.jsp'
     SUBMIT_SEARCH_URL = 'http://assessor.co.{county}.co.us/assessor/taxweb/results.jsp'
     REPORT_URL = 'http://assessor.co.{county}.co.us/assessor/eagleweb/report.jsp'
-    BASE_URL = 'http://assessor.co.grand.co.us/assessor/eagleweb/'
+    BASE_URL = 'http://assessor.co.{county}.co.us/assessor/eagleweb/'
     DOWNLOAD_DIR = 'co-downloads'
+    EXPORT_FILE = 'total.csv'
     CHECK_REPORT_INTERVAL = 5
     PIVOT_INIT_VALUE = 1000
     PARTS_COUNT = 30
@@ -69,11 +71,16 @@ class Command(BaseCommand):
         return self.REPORT_URL + '?display=table'
 
     @property
-    def download_temp_dir(self):
-        return os.path.join(self.download_path, 'tmp', self.county)
+    def download_parts_dir(self):
+        return os.path.join(self.download_path, self.county, 'parts')
+
+    @property
+    def export_file_path(self):
+        return os.path.join(self.download_path, self.county, self.export_file or self.EXPORT_FILE)
 
     def add_arguments(self, parser):
         parser.add_argument('--county', action='store', type=str, required=True)
+        parser.add_argument('--export-file', action='store', type=str)
         parser.add_argument('--download-path', action='store', type=str)
         parser.add_argument('--download-dir', action='store', type=str, default=self.DOWNLOAD_DIR)
         parser.add_argument('--check-report-interval', action='store', type=int, default=self.CHECK_REPORT_INTERVAL)
@@ -82,6 +89,8 @@ class Command(BaseCommand):
         parser.add_argument('--show-info-interval', action='store', type=int, default=self.SHOW_INFO_INTERVAL)
         parser.add_argument('--use-thread', action='store_true')
         parser.add_argument('--noinput', action='store_true')
+        parser.add_argument('--clean', action='store_true')
+        parser.add_argument('--merge', action='store_true')
 
     def handle(self, *args, **options):
         try:
@@ -90,79 +99,167 @@ class Command(BaseCommand):
             print('Canceled!')
             sys.exit(1)
 
-    def _handle(self, *args, **options):
+    def init_vars(self, *args, **options):
         self._finished_counter = 0
         self.county = options.get('county')
         self.parts = options.get('parts')
+        self.noinput = options.get('noinput')
         self.use_thread = options.get('use_thread')
         self.parts_wait_seconds = options.get('parts_wait_seconds')
         self.show_info_interval = options.get('show_info_interval')
+        self.export_file = options.get('export_file')
         self.check_report_interval = options.get('check_report_interval')
-        self.download_path = os.path.join(options.get('download_path') or '',
+        self.download_path = os.path.join(options.get('download_path') or settings.BASE_DIR,
                                           options.get('download_dir') or self.DOWNLOAD_DIR)
+        self.base_url = self.BASE_URL.format(county=self.county)
         self.init_url = self.INIT_URL.format(county=self.county)
         self.login_url = self.LOGIN_URL.format(county=self.county)
         self.submit_search_url = self.SUBMIT_SEARCH_URL.format(county=self.county)
         self.generate_report_url = self.GENERATE_REPORT_URL.format(county=self.county)
         self.check_report_url = self.CHECK_REPORT_URL.format(county=self.county)
-        if os.path.exists(self.download_temp_dir):
-            if not options.get('noinput'):
-                confirm = input('tmp directory already exists! we want to delete this directory. Are you agree?[N/y] ')
-                if (confirm.lower() or 'n') != 'y':
-                    print('Canceled!')
-                    return
-            shutil.rmtree(self.download_temp_dir)
-        os.makedirs(self.download_temp_dir)
+
+    @staticmethod
+    def _find_gaps(sorted_parts):
+        gaps = []
+        prev_s = prev_n = None
+        for s, n in sorted_parts:
+            if (prev_s is not None) and (s != prev_n + 1):
+                gaps.append((prev_n + 1, s - 1))
+            prev_s = s
+            prev_n = n
+        return gaps
+
+    def init_resume_vars(self):
+        self.start_value = 0
+        self.finished_parts = False
+        self.failed_parts = []
+        if not os.path.exists(self.download_parts_dir):
+            return
+        parts = [tuple(map(int, f[:-4].split('-'))) for f in glob.glob1(self.download_parts_dir, '*[0-9]-*[0-9].csv')]
+        if not parts:
+            return
+        parts.sort()
+        last_next = parts[-1][1]
+        if last_next == 0:
+            self.finished_parts = True
+        else:
+            self.start_value = last_next + 1
+        failed_gaps = self._find_gaps(parts)
+        for s, e in failed_gaps:
+            p = self._scrap_total_page(s, e)
+            if p <= self.pages_per_part + 1:
+                self.failed_parts.append((s, e))
+            else:
+                while s < e:
+                    n = self.discover_best_actual_value(s)
+                    if n is None or n > e:
+                        n = e
+                    self.failed_parts.append((s, n))
+                    s = n + 1
+
+    def _handle(self, *args, **options):
+        self.init_vars(*args, **options)
+        if options.get('merge'):
+            return self.merge_parts()
+        if options.get('clean'):
+            shutil.rmtree(self.download_parts_dir)
+
+        if os.path.exists(self.download_parts_dir):
+            if not self.noinput:
+                confirm = input('previous download parts already exists! do you want to continue previous or restart?'
+                                '([C]Countine / [r]Restart) ')
+                if (confirm.lower() or 'c') == 'r':
+                    shutil.rmtree(self.download_parts_dir)
+                    os.makedirs(self.download_parts_dir)
+        else:
+            os.makedirs(self.download_parts_dir)
         print('++ Scrapping Total Pages ... ==> ', end='')
         self.total_page = self._scrap_total_page(0, None)
-        self.pages_per_thread = int(math.ceil(self.total_page / self.parts))
         print('OK')
-        print('++ Distributing downloads [{}] pages between [{}] threads ...'.format(self.total_page, self.parts))
-        print('++ [pages_per_thread = {}]'.format(self.pages_per_thread))
-        # print(self.discover_best_actual_value(0))
-        # return
-        start_value = 0
-        threads = []
-        self.failed_parts = []
-        self.success_parts = []
-        while True:
+        self.pages_per_part = int(math.ceil(self.total_page / self.parts))
+        print('++ Distributing [{}] pages between [{}] parts ...'.format(self.total_page, self.parts))
+        print('++ Initializing Resume vars ...')
+        self.init_resume_vars()
+        if self.failed_parts:
+            print('!!! discovered this failed parts from previous: {}'.format(self.failed_parts))
+        print('++ [pages_per_part = {}]'.format(self.pages_per_part))
+        start_value = self.start_value
+        while not self.finished_parts:
             print('++ Discovering best actual value from [{}] ...'.format(start_value))
             t1 = timezone.now()
             next_value = self.discover_best_actual_value(start_value)
             duration = (timezone.now() - t1).total_seconds()
             print('++ Discovered [{}] for [{}] in [{}] Seconds'.format(next_value, start_value, duration))
-            if self.use_thread:
-                t = Thread(target=self.download_range_data, args=(start_value, next_value))
-                if not threads:
-                    Thread(target=self.start_info_mainloop, args=()).start()
-                threads.append(t)
-                t.start()
-            else:
-                self.download_range_data(start_value, next_value)
-                print('*********** Finished = {} **************'.format(self._finished_counter))
-                print('!!! waiting for [{}] seconds ...'.format(self.parts_wait_seconds))
-                time.sleep(self.parts_wait_seconds)
+            self.download_range_data(start_value, next_value)
+            print('*********** Finished = {} **************'.format(self._finished_counter))
+            print('!!! waiting for [{}] seconds ...'.format(self.parts_wait_seconds))
             if next_value is None:
                 break
+            time.sleep(self.parts_wait_seconds)
             start_value = next_value + 1
 
-        for thread in threads:
-            thread.join()
-        self._finished_threads = True
+        print('+++ download parts finished. ')
+        print('+++ Retrying failed parts ....')
+        self.retry_failed_parts()
+        print('########## Finished downloads ###########')
 
-    def start_info_mainloop(self):
-        if not self.show_info_interval:
+    def merge_parts(self):
+        if not os.path.exists(self.download_parts_dir):
+            print('!!! Cannot merge files! part files not downloaded yet!')
             return
-        while not self._finished_threads:
-            time.sleep(self.show_info_interval)
-            print ('*********** Finished = {} **************'.format(self._finished_counter))
+        files = glob.glob1(self.download_parts_dir, '*[0-9]-*[0-9].csv')
+        if not files:
+            print('!!! Cannot merge files! parts files not downloaded yet!')
+            return
+        if os.path.exists(self.export_file_path) and not self.noinput:
+            confirm = input(
+                '!!! Export file ({}) already exists!\nDo you want to replace?(N/y) '.format(self.export_file_path))
+            if (confirm.lower() or 'n') == 'n':
+                return
+        parts = [tuple(map(int, f[:-4].split('-'))) for f in files]
+        parts.sort()
+        gaps = self._find_gaps(parts)
+        failed = False
+        if parts[-1][1] != 0 or gaps:
+            print('!!! Seems downloads parts was not completed!!!')
+            failed = True
+        if gaps:
+            print('!!! This parts was not downloaded yet: {}'.format(gaps))
+            failed = True
+        if failed and not self.noinput:
+            confirm = input('Do you want to continue merge?(N/y) ')
+            if (confirm.lower() or 'n') == 'n':
+                return
+        print('+++ Merging [{}] files ...'.format(len(files)))
+        with open(self.export_file_path, 'wb') as export_file:
+            included_header = False
+            for s, e in parts:
+                file_path = os.path.join(self.download_parts_dir, '{}-{}.csv'.format(s, e))
+                with open(file_path, 'rb') as fin:
+                    header = next(fin)  # skip header
+                    if not included_header:
+                        export_file.write(header)
+                        included_header = True
+                    export_file.write(fin.read())
+        print('***** Merged to: [{}]'.format(self.export_file_path))
+
+    def retry_failed_parts(self):
+        max_retry = 3
+        while self.failed_parts and max_retry > 0:
+            for start_value, end_value in self.failed_parts[:]:
+                self.failed_parts.pop(0)
+                print('++++ retrying failed part {} - {} ...'.format(start_value, end_value))
+                self.download_range_data(start_value, end_value)
+                print('!!! waiting for [{}] seconds ...'.format(self.parts_wait_seconds))
+                time.sleep(self.parts_wait_seconds)
+            max_retry -= 1
 
     @retry(wait_exponential_multiplier=10000, wait_exponential_max=60000, stop_max_attempt_number=10)
     def discover_best_actual_value(self, start_value):
         lower_bound = start_value
         upper_bound = 2 * start_value + 1
         max_upper_bound = None
-        p = None
+        p = 0
         rnd = 0
         while True:
             if upper_bound == lower_bound:
@@ -172,33 +269,31 @@ class Command(BaseCommand):
             p = self._scrap_total_page(start_value, upper_bound)
             rnd += 1
             print('$$$ Round=[{}]: start_value=[{}], upper_bound=[{}]'.format(rnd, start_value, upper_bound))
-            if p == 0:
-                return None
-            if (max_upper_bound is None) and (p == prev_p) and (self._scrap_total_page(upper_bound, None) == 0):
+            if (max_upper_bound is None) and (p == prev_p) and \
+                (p + self._scrap_total_page(upper_bound, None) <= self.pages_per_part + 1):
                     return None
 
-            if 0 <= p - self.pages_per_thread <= 1:
+            if 0 <= p - self.pages_per_part <= 1:
                 return upper_bound
-            if p < self.pages_per_thread:
+            if p < self.pages_per_part:
                 if max_upper_bound is None:
                     lower_bound, upper_bound = upper_bound, 2 * upper_bound
                 else:
                     lower_bound = upper_bound
                     upper_bound = upper_bound + (max_upper_bound - upper_bound) // 2
-            if p > self.pages_per_thread:
+            if p > self.pages_per_part:
                 max_upper_bound = upper_bound
                 upper_bound = lower_bound + (upper_bound - lower_bound) // 2
 
     def download_range_data(self, start_value, end_value):
         try:
             self._download_range_data(start_value, end_value)
-            self.success_parts.append((start_value, end_value))
         except KeyboardInterrupt:
             print('Canceled!')
             sys.exit(1)
-        except Exception as e:
+        except Exception:
             self.failed_parts.append((start_value, end_value))
-            print('!!! Unexpected Exception for download range [{} - {}]'.format(start_value, next_value))
+            print('!!! Unexpected Exception for download range [{} - {}]'.format(start_value, end_value))
             traceback.print_exc()
         finally:
             self._finished_counter += 1
@@ -239,8 +334,8 @@ class Command(BaseCommand):
                 raise Exception('Not found Download link'.format(range_str, check_result))
             print('+++ {}: Downloading Report ...'.format(range_str))
             download_endpoint = a.get('href')
-            download_url = urljoin(self.BASE_URL, download_endpoint)
-            destfile = os.path.join(self.download_temp_dir, '{}-{}.csv'.format(start_value, end_value))
+            download_url = urljoin(self.base_url, download_endpoint)
+            destfile = os.path.join(self.download_parts_dir, '{}-{}.csv'.format(start_value, end_value or 0))
             self._download_file(session, download_url, destfile)
             break
         end_time = timezone.now()
