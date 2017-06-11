@@ -1,57 +1,55 @@
-import glob
 import os
 import re
 import sys
 import time
-import shutil
-import traceback
-
+import glob
 import math
+import shutil
 import requests
+import traceback
 import functools
-
 from django.conf import settings
 from retrying import retry
-
 try:
     from urllib.parse import urljoin
 except ImportError:
     from urlparse import urljoin
-
 from bs4 import BeautifulSoup
 from django.utils import timezone
 from django.core.management.base import BaseCommand
 
+from . import counties
 
 print = functools.partial(print, flush=True)
 
 
 class Command(BaseCommand):
 
-    help = "download csv records from http://assessor.co.{COUNTY}.co.us site"
+    help = "download csv records from an assessor site"
+    _county_conf = None
     _general_session = None
     _finished_counter = 0
-    finished_parts = False
+    is_finished_parts = False
     start_value = 0
     next_value = None
     failed_parts = []
     download_path = None
     export_file = None
     county = None
-    counter = 0
-    REPORT_TEMPLATE_ID = 'tax.account.extract.AccountPublic'
-    INIT_URL = 'http://assessor.co.{county}.co.us/assessor/web/'
-    LOGIN_URL = 'http://assessor.co.{county}.co.us/assessor/web/loginPOST.jsp'
-    SUBMIT_SEARCH_URL = 'http://assessor.co.{county}.co.us/assessor/taxweb/results.jsp'
-    REPORT_URL = 'http://assessor.co.{county}.co.us/assessor/eagleweb/report.jsp'
-    BASE_URL = 'http://assessor.co.{county}.co.us/assessor/eagleweb/'
     DOWNLOAD_DIR = 'co-downloads'
     EXPORT_FILE = 'total.csv'
     CHECK_REPORT_INTERVAL = 5
     PIVOT_INIT_VALUE = 1000
     PARTS_COUNT = 30
     SHOW_INFO_INTERVAL = 10
-    PARTS_WAIT_SECONDS = 300
+    ROUND_WAIT_SECONDS = 300
+
+    @property
+    def county_conf(self):
+        if self._county_conf is None:
+            self._county_conf = counties.default.copy()
+            self._county_conf.update(counties.conf[self.county])
+        return self._county_conf
 
     @property
     def general_session(self):
@@ -64,11 +62,12 @@ class Command(BaseCommand):
 
     @property
     def GENERATE_REPORT_URL(self):
-        return self.REPORT_URL + '?templateId={}&sn=1&generate=true'.format(self.REPORT_TEMPLATE_ID)
+        return self.county_conf['report_url'] + '?templateId={}&sn=1&generate=true'.format(
+            self.county_conf['report_template_id'])
 
     @property
     def CHECK_REPORT_URL(self):
-        return self.REPORT_URL + '?display=table'
+        return self.county_conf['report_url'] + '?display=table'
 
     @property
     def download_parts_dir(self):
@@ -79,13 +78,14 @@ class Command(BaseCommand):
         return os.path.join(self.download_path, self.county, self.export_file or self.EXPORT_FILE)
 
     def add_arguments(self, parser):
-        parser.add_argument('--county', action='store', type=str, required=True)
+        parser.add_argument('--county', action='store', type=str, required=True,
+                            help='valid counties: {}'.format(', '.join(counties.conf.keys())))
         parser.add_argument('--export-file', action='store', type=str)
         parser.add_argument('--download-path', action='store', type=str)
         parser.add_argument('--download-dir', action='store', type=str, default=self.DOWNLOAD_DIR)
         parser.add_argument('--check-report-interval', action='store', type=int, default=self.CHECK_REPORT_INTERVAL)
         parser.add_argument('--parts', action='store', type=int, default=self.PARTS_COUNT)
-        parser.add_argument('--parts-wait-seconds', action='store', type=int, default=self.PARTS_WAIT_SECONDS)
+        parser.add_argument('--round-wait-seconds', action='store', type=int, default=self.ROUND_WAIT_SECONDS)
         parser.add_argument('--show-info-interval', action='store', type=int, default=self.SHOW_INFO_INTERVAL)
         parser.add_argument('--use-thread', action='store_true')
         parser.add_argument('--noinput', action='store_true')
@@ -102,21 +102,24 @@ class Command(BaseCommand):
     def init_vars(self, *args, **options):
         self._finished_counter = 0
         self.county = options.get('county')
+        if self.county not in counties.conf:
+            print('!!! Invalid county [{}]! valid counties are: [{}]'.format(self.county, ', '.join(counties.conf.keys())))
+            sys.exit(1)
+        self.base_url = self.county_conf['site']
         self.parts = options.get('parts')
         self.noinput = options.get('noinput')
         self.use_thread = options.get('use_thread')
-        self.parts_wait_seconds = options.get('parts_wait_seconds')
+        self.round_wait_seconds = options.get('round_wait_seconds')
         self.show_info_interval = options.get('show_info_interval')
         self.export_file = options.get('export_file')
         self.check_report_interval = options.get('check_report_interval')
         self.download_path = os.path.join(options.get('download_path') or settings.BASE_DIR,
                                           options.get('download_dir') or self.DOWNLOAD_DIR)
-        self.base_url = self.BASE_URL.format(county=self.county)
-        self.init_url = self.INIT_URL.format(county=self.county)
-        self.login_url = self.LOGIN_URL.format(county=self.county)
-        self.submit_search_url = self.SUBMIT_SEARCH_URL.format(county=self.county)
-        self.generate_report_url = self.GENERATE_REPORT_URL.format(county=self.county)
-        self.check_report_url = self.CHECK_REPORT_URL.format(county=self.county)
+        self.init_url = urljoin(self.base_url, self.county_conf['init_url'])
+        self.login_url = urljoin(self.base_url, self.county_conf['login_url'])
+        self.submit_search_url = urljoin(self.base_url, self.county_conf['submit_search_url'])
+        self.generate_report_url = urljoin(self.base_url, self.GENERATE_REPORT_URL)
+        self.check_report_url = urljoin(self.base_url, self.CHECK_REPORT_URL)
 
     @staticmethod
     def _find_gaps(sorted_parts):
@@ -131,7 +134,7 @@ class Command(BaseCommand):
 
     def init_resume_vars(self):
         self.start_value = 0
-        self.finished_parts = False
+        self.is_finished_parts = False
         self.failed_parts = []
         if not os.path.exists(self.download_parts_dir):
             return
@@ -139,9 +142,9 @@ class Command(BaseCommand):
         if not parts:
             return
         parts.sort()
-        last_next = parts[-1][1]
-        if last_next == 0:
-            self.finished_parts = True
+        last_start, last_next = parts[-1]
+        if last_next == 0 and last_start != 0:
+            self.is_finished_parts = True
         else:
             self.start_value = last_next + 1
         failed_gaps = self._find_gaps(parts)
@@ -165,7 +168,7 @@ class Command(BaseCommand):
             shutil.rmtree(self.download_parts_dir)
 
         if os.path.exists(self.download_parts_dir):
-            if not self.noinput:
+            if glob.glob1(self.download_parts_dir, '*[0-9]-*[0-9].csv') and not self.noinput:
                 confirm = input('previous download parts already exists! do you want to continue previous or restart?'
                                 '([C]Countine / [r]Restart) ')
                 if (confirm.lower() or 'c') == 'r':
@@ -184,7 +187,7 @@ class Command(BaseCommand):
             print('!!! discovered this failed parts from previous: {}'.format(self.failed_parts))
         print('++ [pages_per_part = {}]'.format(self.pages_per_part))
         start_value = self.start_value
-        while not self.finished_parts:
+        while not self.is_finished_parts:
             print('++ Discovering best actual value from [{}] ...'.format(start_value))
             t1 = timezone.now()
             next_value = self.discover_best_actual_value(start_value)
@@ -192,10 +195,10 @@ class Command(BaseCommand):
             print('++ Discovered [{}] for [{}] in [{}] Seconds'.format(next_value, start_value, duration))
             self.download_range_data(start_value, next_value)
             print('*********** Finished = {} **************'.format(self._finished_counter))
-            print('!!! waiting for [{}] seconds ...'.format(self.parts_wait_seconds))
+            print('!!! waiting for [{}] seconds ...'.format(self.round_wait_seconds))
             if next_value is None:
                 break
-            time.sleep(self.parts_wait_seconds)
+            time.sleep(self.round_wait_seconds)
             start_value = next_value + 1
 
         print('+++ download parts finished. ')
@@ -250,8 +253,8 @@ class Command(BaseCommand):
                 self.failed_parts.pop(0)
                 print('++++ retrying failed part {} - {} ...'.format(start_value, end_value))
                 self.download_range_data(start_value, end_value)
-                print('!!! waiting for [{}] seconds ...'.format(self.parts_wait_seconds))
-                time.sleep(self.parts_wait_seconds)
+                print('!!! waiting for [{}] seconds ...'.format(self.round_wait_seconds))
+                time.sleep(self.round_wait_seconds)
             max_retry -= 1
 
     @retry(wait_exponential_multiplier=10000, wait_exponential_max=60000, stop_max_attempt_number=10)
@@ -263,7 +266,7 @@ class Command(BaseCommand):
         rnd = 0
         while True:
             if upper_bound == lower_bound:
-                return upper_bound
+                return max_upper_bound or upper_bound
 
             prev_p = p
             p = self._scrap_total_page(start_value, upper_bound)
@@ -324,7 +327,7 @@ class Command(BaseCommand):
         session.get(self.generate_report_url)
         while True:
             check_result = session.get(self.check_report_url).text
-            if 'Your report is being generated' in check_result:
+            if re.search(self.county_conf['generating_report_pattern'], check_result):
                 time.sleep(self.check_report_interval)
                 continue
             bs = BeautifulSoup(check_result, 'html.parser')
@@ -334,7 +337,8 @@ class Command(BaseCommand):
                 raise Exception('Not found Download link'.format(range_str, check_result))
             print('+++ {}: Downloading Report ...'.format(range_str))
             download_endpoint = a.get('href')
-            download_url = urljoin(self.base_url, download_endpoint)
+            download_base = urljoin(self.base_url, self.county_conf['eagle_web_url'])
+            download_url = urljoin(download_base, download_endpoint)
             destfile = os.path.join(self.download_parts_dir, '{}-{}.csv'.format(start_value, end_value or 0))
             self._download_file(session, download_url, destfile)
             break
@@ -366,10 +370,14 @@ class Command(BaseCommand):
         if 'No results found for query' in search_result:
             return 0
         bs = BeautifulSoup(search_result, 'html.parser')
-        pagination_title = bs.find(id='middle').find(text=re.compile('^Showing .+ result(s?) on .+ page'))
+        pagination_title = bs.find(id='middle').find(text=re.compile(self.county_conf['pagination_re']))
         if not pagination_title:
             raise Exception('!!! {}: Cannot scrap pagination title'.format(range_str))
-        pages = re.findall('(\d+) page', pagination_title)
+        total_records = re.findall(self.county_conf['total_records_re1'], pagination_title)
+        if total_records:
+            pages = [int(math.ceil(int(total_records[0]) / self.county_conf['records_per_page']))]
+        else:
+            pages = re.findall(self.county_conf['total_pages_re'], pagination_title)
         if not pages:
             raise Exception('!!! {}: Cannot scrap total pages'.format(range_str))
         return int(pages[0])
