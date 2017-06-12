@@ -43,6 +43,7 @@ class Command(BaseCommand):
     PARTS_COUNT = 30
     SHOW_INFO_INTERVAL = 10
     ROUND_WAIT_SECONDS = 300
+    PAGES_DELTA = 1
 
     @property
     def county_conf(self):
@@ -87,6 +88,7 @@ class Command(BaseCommand):
         parser.add_argument('--parts', action='store', type=int, default=self.PARTS_COUNT)
         parser.add_argument('--round-wait-seconds', action='store', type=int, default=self.ROUND_WAIT_SECONDS)
         parser.add_argument('--show-info-interval', action='store', type=int, default=self.SHOW_INFO_INTERVAL)
+        parser.add_argument('--pages-delta', action='store', type=int, default=self.PAGES_DELTA)
         parser.add_argument('--use-thread', action='store_true')
         parser.add_argument('--noinput', action='store_true')
         parser.add_argument('--clean', action='store_true')
@@ -106,6 +108,7 @@ class Command(BaseCommand):
             print('!!! Invalid county [{}]! valid counties are: [{}]'.format(self.county, ', '.join(counties.conf.keys())))
             sys.exit(1)
         self.base_url = self.county_conf['site']
+        self.pages_delta = options.get('pages_delta')
         self.parts = options.get('parts')
         self.noinput = options.get('noinput')
         self.use_thread = options.get('use_thread')
@@ -152,7 +155,7 @@ class Command(BaseCommand):
             print('+++ Discovering failed parts for this gaps: {}'.format(failed_gaps))
         for s, e in failed_gaps:
             p = self._scrap_total_page(s, e)
-            if p <= self.pages_per_part + 1:
+            if p <= self.pages_per_part + self.pages_delta:
                 self.failed_parts.append((s, e))
             else:
                 while s < e:
@@ -276,10 +279,10 @@ class Command(BaseCommand):
             rnd += 1
             print('$$$ Round=[{}]: start_value=[{}], upper_bound=[{}]'.format(rnd, start_value, upper_bound))
             if (max_upper_bound is None) and (p == prev_p) and \
-                (p + self._scrap_total_page(upper_bound, None) <= self.pages_per_part + 1):
+                (p + self._scrap_total_page(upper_bound, None) <= self.pages_per_part + self.pages_delta):
                     return None
 
-            if 0 <= p - self.pages_per_part <= 1:
+            if 0 <= p - self.pages_per_part <= self.pages_delta:
                 return upper_bound
             if p < self.pages_per_part:
                 if max_upper_bound is None:
