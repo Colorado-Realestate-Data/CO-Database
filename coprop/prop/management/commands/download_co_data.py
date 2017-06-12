@@ -148,6 +148,8 @@ class Command(BaseCommand):
         else:
             self.start_value = last_next + 1
         failed_gaps = self._find_gaps(parts)
+        if failed_gaps:
+            print('+++ Discovering failed parts ...')
         for s, e in failed_gaps:
             p = self._scrap_total_page(s, e)
             if p <= self.pages_per_part + 1:
