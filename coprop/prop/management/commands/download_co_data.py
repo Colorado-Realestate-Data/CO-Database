@@ -182,11 +182,11 @@ class Command(BaseCommand):
         print('OK')
         self.pages_per_part = int(math.ceil(self.total_page / self.parts))
         print('++ Distributing [{}] pages between [{}] parts ...'.format(self.total_page, self.parts))
+        print('++ [pages_per_part = {}]'.format(self.pages_per_part))
         print('++ Initializing Resume vars ...')
         self.init_resume_vars()
         if self.failed_parts:
             print('!!! discovered this failed parts from previous: {}'.format(self.failed_parts))
-        print('++ [pages_per_part = {}]'.format(self.pages_per_part))
         start_value = self.start_value
         while not self.is_finished_parts:
             print('++ Discovering best actual value from [{}] ...'.format(start_value))
