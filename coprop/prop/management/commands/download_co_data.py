@@ -56,7 +56,7 @@ class Command(BaseCommand):
         if self._general_session is None:
             session = requests.session()
             session.get(self.init_url)
-            session.post(self.login_url, data={'guest': 'true', 'submit': 'Enter EagleWeb'}, allow_redirects=False)
+            session.post(self.login_url, data=self.county_conf['public_login_data'], allow_redirects=False)
             self._general_session = session
         return self._general_session
 
@@ -157,6 +157,7 @@ class Command(BaseCommand):
                     n = self.discover_best_actual_value(s)
                     if n is None or n > e:
                         n = e
+                    print('!!! Discovered failed part: [{} - {}]'.format(s, n))
                     self.failed_parts.append((s, n))
                     s = n + 1
 
@@ -195,9 +196,9 @@ class Command(BaseCommand):
             print('++ Discovered [{}] for [{}] in [{}] Seconds'.format(next_value, start_value, duration))
             self.download_range_data(start_value, next_value)
             print('*********** Finished = {} **************'.format(self._finished_counter))
-            print('!!! waiting for [{}] seconds ...'.format(self.round_wait_seconds))
             if next_value is None:
                 break
+            print('!!! waiting for [{}] seconds ...'.format(self.round_wait_seconds))
             time.sleep(self.round_wait_seconds)
             start_value = next_value + 1
 
@@ -334,7 +335,7 @@ class Command(BaseCommand):
             a = bs.find('a')
             if not a:
                 print('!!! {}: Not found Download link in content: {}'.format(range_str, check_result))
-                raise Exception('Not found Download link'.format(range_str, check_result))
+                raise Exception('Not found Download link')
             print('+++ {}: Downloading Report ...'.format(range_str))
             download_endpoint = a.get('href')
             download_base = urljoin(self.base_url, self.county_conf['eagle_web_url'])
