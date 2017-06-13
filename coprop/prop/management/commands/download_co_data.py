@@ -29,6 +29,7 @@ class Command(BaseCommand):
     _county_conf = None
     _general_session = None
     _finished_counter = 0
+    records_per_page = None
     is_finished_parts = False
     start_value = 0
     next_value = None
@@ -87,7 +88,7 @@ class Command(BaseCommand):
         parser.add_argument('--check-report-interval', action='store', type=int, default=self.CHECK_REPORT_INTERVAL)
         parser.add_argument('--parts', action='store', type=int, default=self.PARTS_COUNT)
         parser.add_argument('--round-wait-seconds', action='store', type=int, default=self.ROUND_WAIT_SECONDS)
-        parser.add_argument('--show-info-interval', action='store', type=int, default=self.SHOW_INFO_INTERVAL)
+        parser.add_argument('--show-failed-parts', action='store_true')
         parser.add_argument('--pages-delta', action='store', type=int, default=self.PAGES_DELTA)
         parser.add_argument('--use-thread', action='store_true')
         parser.add_argument('--noinput', action='store_true')
@@ -113,7 +114,6 @@ class Command(BaseCommand):
         self.noinput = options.get('noinput')
         self.use_thread = options.get('use_thread')
         self.round_wait_seconds = options.get('round_wait_seconds')
-        self.show_info_interval = options.get('show_info_interval')
         self.export_file = options.get('export_file')
         self.check_report_interval = options.get('check_report_interval')
         self.download_path = os.path.join(options.get('download_path') or settings.BASE_DIR,
@@ -170,6 +170,8 @@ class Command(BaseCommand):
         self.init_vars(*args, **options)
         if options.get('merge'):
             return self.merge_parts()
+        if options.get('show_failed_parts'):
+            return self.show_failed_parts()
         if options.get('clean'):
             shutil.rmtree(self.download_parts_dir)
 
@@ -183,11 +185,13 @@ class Command(BaseCommand):
         else:
             os.makedirs(self.download_parts_dir)
         print('++ Scrapping Total Pages ... ==> ', end='')
-        self.total_page = self._scrap_total_page(0, None)
+        pages_info = self._scrap_total_page(0, None, include_extra=True)
+        self.total_page = pages_info['pages']
+        self.records_per_page = pages_info['records_per_page']
         print('OK')
         self.pages_per_part = int(math.ceil(self.total_page / self.parts))
         print('++ Distributing [{}] pages between [{}] parts ...'.format(self.total_page, self.parts))
-        print('++ [pages_per_part = {}]'.format(self.pages_per_part))
+        print('++ [pages_per_part = {}] [records_per_page = {}]'.format(self.pages_per_part, self.records_per_page))
         print('++ Initializing Resume vars ...')
         self.init_resume_vars()
         if self.failed_parts:
@@ -210,6 +214,8 @@ class Command(BaseCommand):
         print('+++ download parts finished. ')
         print('+++ Retrying failed parts ....')
         self.retry_failed_parts()
+        if self.failed_parts:
+            print('!!!!!!! We already failed this parts: {}'.format(self.failed_parts))
         print('########## Finished downloads ###########')
 
     def merge_parts(self):
@@ -252,6 +258,28 @@ class Command(BaseCommand):
                     export_file.write(fin.read())
         print('***** Merged to: [{}]'.format(self.export_file_path))
 
+    def show_failed_parts(self):
+        if not os.path.exists(self.download_parts_dir):
+            print('!!! No parts downloaded yet!')
+            return
+        files = glob.glob1(self.download_parts_dir, '*[0-9]-*[0-9].csv')
+        if not files:
+            print('!!! No parts downloaded yet!')
+            return
+        parts = [tuple(map(int, f[:-4].split('-'))) for f in files]
+        parts.sort()
+        gaps = self._find_gaps(parts)
+        failed = False
+        if parts[-1][1] != 0 or gaps:
+            print('!!! Seems downloads parts was not completed yet!!!')
+            print('++ records from [{}] to [{}] value is downloaded.'.format(parts[0][0], parts[-1][1]))
+            failed = True
+        if gaps:
+            print('!!! This parts was not downloaded yet: {}'.format(gaps))
+            failed = True
+        if not failed:
+            print('All parts downloaded successfully for [{}] county.'.format(self.county))
+
     def retry_failed_parts(self):
         max_retry = 3
         while self.failed_parts and max_retry > 0:
@@ -277,7 +305,8 @@ class Command(BaseCommand):
             prev_p = p
             p = self._scrap_total_page(start_value, upper_bound)
             rnd += 1
-            print('$$$ Round=[{}]: start_value=[{}], upper_bound=[{}]'.format(rnd, start_value, upper_bound))
+            print('$$$ Round=[{}]: start_value=[{}], upper_bound=[{}], pages=[{}]'.format(rnd, start_value,
+                                                                                          upper_bound, p))
             if (max_upper_bound is None) and (p == prev_p) and \
                 (p + self._scrap_total_page(upper_bound, None) <= self.pages_per_part + self.pages_delta):
                     return None
@@ -361,7 +390,7 @@ class Command(BaseCommand):
         else:
             raise Exception('Cannot Download File {}, to be saved in {}'.format(url, destfile))
 
-    def _scrap_total_page(self, start_value, end_value, session=None):
+    def _scrap_total_page(self, start_value, end_value, session=None, include_extra=False):
         range_str = '[{} - {}]'.format(start_value, end_value)
         session = session or self.general_session
         data = {}
@@ -380,11 +409,15 @@ class Command(BaseCommand):
         if not pagination_title:
             raise Exception('!!! {}: Cannot scrap pagination title'.format(range_str))
         total_records = re.findall(self.county_conf['total_records_re1'], pagination_title)
+        records_per_page = len(bs.findAll("tr", {"class": "tableRow1"})) + \
+                           len(bs.findAll("tr", {"class": "tableRow2"}))
         if total_records:
-            pages = [int(math.ceil(int(total_records[0]) / self.county_conf['records_per_page']))]
+            pages = [int(math.ceil(int(total_records[0]) / (self.records_per_page or records_per_page)))]
         else:
             pages = re.findall(self.county_conf['total_pages_re'], pagination_title)
         if not pages:
             raise Exception('!!! {}: Cannot scrap total pages'.format(range_str))
+        if include_extra:
+            return dict(pages=int(pages[0]), records_per_page=records_per_page)
         return int(pages[0])
 
