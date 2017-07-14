@@ -57,14 +57,15 @@ MIDDLEWARE_CLASSES = [
 ]
 
 REST_FRAMEWORK = {
-    'EXCEPTION_HANDLER': 'coprop.custom_rest_exception_handler',
+    'EXCEPTION_HANDLER': 'coprop.helpers.utils.custom_rest_exception_handler',
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.DjangoModelPermissions'
+        'coprop.helpers.utils.CustomDjangoModelPermissions'
     ],
-    'DEFAULT_PAGINATION_CLASS': 'coprop.CustomPagination',
+    'DEFAULT_PAGINATION_CLASS': 'coprop.helpers.utils.CustomPagination',
     'DEFAULT_FILTER_BACKENDS': ('rest_framework.filters.DjangoFilterBackend',
                                 'rest_framework.filters.OrderingFilter'),
     'PAGE_SIZE': 25,
+    'MAX_PAGE_SIZE_DEFAULT': 200,
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication',
