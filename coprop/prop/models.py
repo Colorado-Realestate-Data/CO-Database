@@ -1,6 +1,6 @@
 import hashlib
 from django.db import models
-from datetime import datetime
+from django.utils import timezone
 from reversion import revisions as reversion
 
 
@@ -8,7 +8,12 @@ from reversion import revisions as reversion
 class Property(models.Model):
     parid = models.CharField(max_length=255)
     county = models.CharField(max_length=255)
-    timestamp = models.DateTimeField(default=datetime.now)
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        if self.county:
+            self.county = self.county.lower()
+        return super(Property, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.parid
@@ -34,7 +39,7 @@ class Owner(models.Model):
     ownico = models.BooleanField(default=False)
     # Maybe use for DBA flag, Care of flag...
     other = models.CharField(max_length=255, default=None, null=True)
-    timestamp = models.DateTimeField(default=datetime.now)
+    timestamp = models.DateTimeField(default=timezone.now)
     properties = models.ManyToManyField(Property, default=list, blank=True)
 
     def __str__(self):
@@ -61,7 +66,7 @@ class Address(models.Model):
     tiger_line_id = models.CharField(max_length=16, default=None, null=True)
     tiger_line_side = models.CharField(max_length=1, default=None, null=True,
                                        choices=TIGET_SIDES_CHOICES)
-    timestamp = models.DateTimeField(default=datetime.now)
+    timestamp = models.DateTimeField(default=timezone.now)
 
     _hashit = hashlib.sha256
 
@@ -120,7 +125,7 @@ class Account(models.Model):
     effective_date = models.DateField(null=False)
     amount = models.DecimalField(max_digits=12, decimal_places=2, null=False)
     balance = models.DecimalField(max_digits=12, decimal_places=2, null=False)
-    timestamp = models.DateTimeField(default=datetime.now)
+    timestamp = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return 'Account(tax_year={0}, amount={1})'.format(self.tax_year,
@@ -136,8 +141,8 @@ class LienAuction(models.Model):
     face_value = models.DecimalField(max_digits=12, decimal_places=2)
     name = models.CharField(max_length=255)
     tax_year = models.IntegerField()
-    winning_bid = models.DecimalField(max_digits=12, decimal_places=2)
-    timestamp = models.DateTimeField(default=datetime.now)
+    winning_bid = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    timestamp = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return 'LienAuction(tax_year={0}, winning_bid={1})'.format(

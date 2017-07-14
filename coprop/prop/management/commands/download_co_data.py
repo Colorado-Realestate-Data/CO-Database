@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 from django.utils import timezone
 from django.core.management.base import BaseCommand
 
-from . import counties
+from . import _counties as counties
 
 print = functools.partial(print, flush=True)
 
