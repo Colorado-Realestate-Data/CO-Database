@@ -10,9 +10,9 @@ conf = {
     'grand': {
         'site': 'http://ecomm.co.grand.co.us',
     },
-    # 'broomfield': {
-    #     'site': 'http://egov.broomfield.org',
-    # },
+    'broomfield': {
+        'site': 'http://egov.broomfield.org',
+    },
     # 'clear_creek': {
     #     'site': 'http://assessor.co.clear-creek.co.us',
     # },

@@ -126,8 +126,9 @@ class Command(BaseCommand):
 
     @staticmethod
     def _standardize_row(row):
-        row['Amount'] = row['Amount'].lstrip('$').replace(',', '')
-        row['Balance'] = row['Balance'].lstrip('$').replace(',', '')
+
+        row['Amount'] = ''.join(c for c in row['Amount'] if c not in '$,()')
+        row['Balance'] = ''.join(c for c in row['Balance'] if c not in '$,()')
         dt = row['Effective_Date']
         try:
             dt = datetime.strptime(dt, '%m/%d/%y').date().strftime('%Y-%m-%d')
