@@ -131,10 +131,6 @@ class Account(models.Model):
         return 'Account(tax_year={0}, amount={1})'.format(self.tax_year,
                                                           self.amount)
 
-    class Meta:
-        unique_together = ('property', 'tax_year', 'tax_type',
-                           'effective_date', 'amount', 'balance')
-
 
 class LienAuction(models.Model):
     property = models.ForeignKey(Property)
