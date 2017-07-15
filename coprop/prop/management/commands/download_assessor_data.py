@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 from django.utils import timezone
 from django.core.management.base import BaseCommand
 
-from . import _counties as counties
+from . import _assessor_counties as counties
 
 print = functools.partial(print, flush=True)
 
@@ -37,7 +37,7 @@ class Command(BaseCommand):
     download_path = None
     export_file = None
     county = None
-    DOWNLOAD_DIR = 'co-downloads'
+    DOWNLOAD_DIR = 'assessor-downloads'
     EXPORT_FILE = 'total.csv'
     CHECK_REPORT_INTERVAL = 5
     PIVOT_INIT_VALUE = 1000

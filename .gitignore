@@ -68,4 +68,7 @@ target/
 *.sqlite3
 
 # tmp dirs
-co-downloads
+assessor-downloads/
+treasurer-downloads/
+
+
