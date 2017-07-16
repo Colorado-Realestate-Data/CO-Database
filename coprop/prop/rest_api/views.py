@@ -12,7 +12,7 @@ from .serializers import PropertySerializer, OwnerSerializer, \
 from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
     Account, LienAuction
 from .filters import PropertyFilter, AccountFilter, LienAuctionFilter, \
-    AccountTaxTypeSummaryFilter
+    AccountTaxTypeSummaryFilter, PropertyTaxTypeSummaryFilter
 
 
 class HistoricalViewMixin(object):
@@ -58,6 +58,15 @@ class PropertyView(viewsets.ModelViewSet, HistoricalViewMixin):
     ordering_fields = '__all__'
     ordering = 'id'
     filter_class = PropertyFilter
+
+    @detail_route()
+    def tax_type_summary(self, request, pk=None):
+        object = self.get_object()
+        qs = object.account_set.values('tax_type', 'tax_year').annotate(amounts=Sum('amount'))
+        filters = PropertyTaxTypeSummaryFilter(request.query_params, queryset=qs)
+        results = [r for r in filters.qs]
+        return Response(results)
+
 
 
 class OwnerView(viewsets.ModelViewSet, HistoricalViewMixin):

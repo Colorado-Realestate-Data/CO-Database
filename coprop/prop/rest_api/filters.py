@@ -37,6 +37,17 @@ class AccountTaxTypeSummaryFilter(filters.FilterSet):
         fields = ['tax_year', 'min_tax_year', 'max_tax_year', 'property__parid', ]
 
 
+class PropertyTaxTypeSummaryFilter(filters.FilterSet):
+    min_tax_year = django_filters.NumberFilter(name="tax_year",
+                                               lookup_expr="gte")
+    max_tax_year = django_filters.NumberFilter(name="tax_year",
+                                               lookup_expr="lte")
+
+    class Meta:
+        model = Account
+        fields = ['tax_year', 'min_tax_year', 'max_tax_year', 'tax_type']
+
+
 class LienAuctionFilter(filters.FilterSet):
     min_tax_year = django_filters.NumberFilter(name="tax_year", lookup_expr="gte")
     max_tax_year = django_filters.NumberFilter(name="tax_year", lookup_expr="lte")
