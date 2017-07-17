@@ -1,8 +1,32 @@
+import inspect
+import sys
 from rest_framework import serializers
+from django.conf import settings
+from rest_framework.reverse import reverse
 from django.db import IntegrityError, transaction
 
 from prop.models import Property, Owner, PropertyAddress, OwnerAddress, \
-    Account, LienAuction
+    Account, LienAuction, CountyBaseModel, County
+
+
+class CountySerializer(serializers.ModelSerializer):
+    api_url = serializers.SerializerMethodField('api_root_url')
+
+    def api_root_url(self, obj):
+        COUNTY_BASE_ENDPOINT_PARAM = getattr(settings, 'COUNTY_BASE_ENDPOINT_PARAM', 'county')
+        VERSION_PARAM = settings.REST_FRAMEWORK.get('VERSION_PARAM', 'version')
+        DEFAULT_VERSION = settings.REST_FRAMEWORK.get('DEFAULT_VERSION', 'v1')
+        version = DEFAULT_VERSION
+        request = self.context.get("request")
+        if request:
+            version = getattr(request, VERSION_PARAM, DEFAULT_VERSION) or DEFAULT_VERSION
+        url = reverse('county_base_rest_api:api-root',
+                      kwargs={COUNTY_BASE_ENDPOINT_PARAM: obj.name, VERSION_PARAM: version}, request=request)
+        return url
+
+    class Meta:
+        model = County
+        fields = '__all__'
 
 
 class OwnerAddressSerializer(serializers.ModelSerializer):
@@ -143,3 +167,30 @@ class LienAuctionSerializer(serializers.ModelSerializer):
     class Meta:
         model = LienAuction
         fields = '__all__'
+
+
+# ##################################################################################################
+# !!! dont touch this section. we need this section to hack some serializers to inject some data !!!
+# ##################################################################################################
+def _perd(c):
+    return inspect.isclass(c) and c.__module__ == _perd.__module__
+
+classes = inspect.getmembers(sys.modules[__name__], _perd)
+for class_name, klass in classes:
+    if not issubclass(klass, serializers.ModelSerializer):
+        continue
+    meta = getattr(klass, 'Meta', None)
+    if not meta:
+        continue
+    model = getattr(klass.Meta, 'model', None)
+    if not model or (not issubclass(model, CountyBaseModel)):
+        continue
+
+    fields = getattr(klass.Meta, 'fields', None)
+    if fields:
+        if fields == '__all__':
+            delattr(klass.Meta, 'fields')
+            klass.Meta.exclude = ('county',)
+    else:
+        exclude = tuple(getattr(klass.Meta, 'exclude', None) or ())
+        klass.Meta.exclude = exclude + ('county',)

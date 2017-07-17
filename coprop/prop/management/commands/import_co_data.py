@@ -10,6 +10,7 @@ class Command(BaseCommand):
 
     help = "Import co-database records from csv file."
     client = None
+    API_PREFIX = '/{county}/api/v1'
 
     def add_arguments(self, parser):
         parser.add_argument('--api-url', action='store', type=str, required=True)
@@ -44,16 +45,20 @@ class Command(BaseCommand):
         self.import_data(owners_csv_path, accounts_csv_path, auction_csv_path)
         print("--- Finished!")
 
+    def api_url(self, endpoint):
+        prefix = self.API_PREFIX.format(county=self.county).rstrip('/')
+        return '{}/{}'.format(prefix, endpoint.lstrip())
+
     @staticmethod
     def strip_dict(d):
         return {k: v and v.strip() for k, v in d.items()}
 
     def get_property(self, parid):
-        res = self.client.get('/api/v1/property', {'parid': parid, 'county': self.county})['results']
+        res = self.client.get(self.api_url('property'), {'parid': parid, 'county': self.county})['results']
         return res[0] if res else None
 
     def add_property(self, row):
-        parid = row.get('PARCELSEQ')
+        parid = row.get('ACCOUNTNO')
         if not parid:
             print('invalid record! parid is blank!')
             return None
@@ -71,7 +76,7 @@ class Command(BaseCommand):
             'address': address
         }
         try:
-            prop = self.client.post('/api/v1/property', data)
+            prop = self.client.post(self.api_url('property'), data)
         except RestResponseException as exc:
             msg = str(exc.args[2])
             if exc.status_code == 409:
@@ -105,7 +110,7 @@ class Command(BaseCommand):
         }
         if ownico:
             data['other'] = ownico
-        return self.client.post('/api/v1/owner', data)
+        return self.client.post(self.api_url('owner'), data)
 
     def add_account(self, row, property_parids):
         parid = row.get('Parcel_ID')
@@ -125,7 +130,7 @@ class Command(BaseCommand):
             'balance': row.get('Balance') or None,
         }
         try:
-            account = self.client.post('/api/v1/account', data)
+            account = self.client.post(self.api_url('account'), data)
         except RestResponseException as exc:
             if exc.status_code == 409:
                 print('Skipped adding this duplicated account: {}'.format(str(data)))
@@ -154,7 +159,7 @@ class Command(BaseCommand):
             'winning_bid': row.get('Winning_Bid') or None,
         }
         try:
-            auction = self.client.post('/api/v1/lien_auction', data)
+            auction = self.client.post(self.api_url('lien_auction'), data)
         except RestResponseException as exc:
             if exc.status_code == 409:
                 print('Skipped adding this duplicated lien_auction: {}'.format(str(data)))

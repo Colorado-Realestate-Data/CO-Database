@@ -8,11 +8,27 @@ from reversion.models import Version
 
 from .serializers import PropertySerializer, OwnerSerializer, \
     OwnerAddressSerializer, PropertyAddressSerializer, AccountSerializer, \
-    LienAuctionSerializer
+    LienAuctionSerializer, CountySerializer
 from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
-    Account, LienAuction
+    Account, LienAuction, County
 from .filters import PropertyFilter, AccountFilter, LienAuctionFilter, \
     AccountTaxTypeSummaryFilter, PropertyTaxTypeSummaryFilter
+
+
+class CountyViewSetMixin(object):
+    '''
+    a base connty modelviewset class for all other viewsets.
+    Notice!!! using this class in multi-inheritance as a "first" parent class.
+    i.e: class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin)
+    '''
+    county_object = None
+    county_url_kwarg = 'county'
+
+    def county_filter(self, qs):
+        return qs.filter(county=self.request.county)
+
+    def get_queryset(self):
+        return self.county_filter(super(CountyViewSetMixin, self).get_queryset())
 
 
 class HistoricalViewMixin(object):
@@ -33,7 +49,7 @@ class HistoricalViewMixin(object):
         return queryset.filter(**query_args)
 
     @detail_route(methods=['get'])
-    def history(self, request, pk=None):
+    def history(self, request, *args, **kwargs):
         instance = self.get_object()
         queryset = Version.objects.get_for_object(instance)
         queryset = self.get_history_filters_by_params(request, queryset)
@@ -50,7 +66,22 @@ class HistoricalViewMixin(object):
         return Response(result)
 
 
-class PropertyView(viewsets.ModelViewSet, HistoricalViewMixin):
+class CountyView(viewsets.ReadOnlyModelViewSet):
+    """ rest api Owner resource. """
+
+    queryset = County.objects.all()
+    serializer_class = CountySerializer
+    pagination_class = None
+    filter_fields = ('name', 'active')
+    ordering = 'name'
+    ordering_fields = '__all__'
+
+    def get_serializer_context(self):
+        context = super(CountyView, self).get_serializer_context() or {}
+        context.update({'request': self.request})
+        return context
+
+class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
     """ rest api Property resource. """
 
     queryset = Property.objects.all()
@@ -60,7 +91,7 @@ class PropertyView(viewsets.ModelViewSet, HistoricalViewMixin):
     filter_class = PropertyFilter
 
     @detail_route()
-    def tax_type_summary(self, request, pk=None):
+    def tax_type_summary(self, request, *args, **kwargs):
         object = self.get_object()
         qs = object.account_set.values('tax_type', 'tax_year').annotate(amounts=Sum('amount'))
         filters = PropertyTaxTypeSummaryFilter(request.query_params, queryset=qs)
@@ -69,7 +100,7 @@ class PropertyView(viewsets.ModelViewSet, HistoricalViewMixin):
 
 
 
-class OwnerView(viewsets.ModelViewSet, HistoricalViewMixin):
+class OwnerView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
     """ rest api Owner resource. """
 
     queryset = Owner.objects.all()
@@ -79,7 +110,7 @@ class OwnerView(viewsets.ModelViewSet, HistoricalViewMixin):
     ordering_fields = '__all__'
 
 
-class OwnerAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
+class OwnerAddressView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
     """ rest api OwnerAddress resource. """
 
     queryset = OwnerAddress.objects.all()
@@ -90,7 +121,7 @@ class OwnerAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
     ordering = 'id'
 
 
-class PropertyAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
+class PropertyAddressView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
     """ rest api PropertyAddress resource. """
 
     queryset = PropertyAddress.objects.all()
@@ -101,7 +132,7 @@ class PropertyAddressView(viewsets.ModelViewSet, HistoricalViewMixin):
     ordering = 'id'
 
 
-class AccountView(viewsets.ModelViewSet):
+class AccountView(CountyViewSetMixin, viewsets.ModelViewSet):
     """ rest api Account resource. """
 
     queryset = Account.objects.all()
@@ -111,14 +142,14 @@ class AccountView(viewsets.ModelViewSet):
     ordering = 'id'
 
     @list_route()
-    def tax_type_summary(self, request, **kwargs):
+    def tax_type_summary(self, request, *args, **kwargs):
         qs = self.get_queryset().values('tax_type').annotate(amounts=Sum('amount'))
         filters = AccountTaxTypeSummaryFilter(request.query_params, queryset=qs)
         results = [r for r in filters.qs]
         return Response(results)
 
 
-class LienAuctionView(viewsets.ModelViewSet):
+class LienAuctionView(CountyViewSetMixin, viewsets.ModelViewSet):
     """ rest api LienAuction resource. """
 
     queryset = LienAuction.objects.all()

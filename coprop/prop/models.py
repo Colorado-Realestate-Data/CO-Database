@@ -3,17 +3,43 @@ from django.db import models
 from django.utils import timezone
 from reversion import revisions as reversion
 
+from prop.middleware import get_current_county_id
 
-@reversion.register()
-class Property(models.Model):
-    parid = models.CharField(max_length=255)
-    county = models.CharField(max_length=255)
-    timestamp = models.DateTimeField(default=timezone.now)
+
+class County(models.Model):
+    name = models.CharField(max_length=128, unique=True)
+    display_name = models.CharField(max_length=255, blank=True, null=True)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "County"
+        verbose_name_plural = "Counties"
 
     def save(self, *args, **kwargs):
-        if self.county:
-            self.county = self.county.lower()
-        return super(Property, self).save(*args, **kwargs)
+        if self.name:
+            self.name = self.name.lower()
+        return super(County, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class CountyBaseModel(models.Model):
+    '''
+    Top level entity, each entity will be linked to one,
+    which might have one or more Users registered.
+    Those Users are added through the admin interface.
+    '''
+    county = models.ForeignKey(County, on_delete=models.CASCADE, default=get_current_county_id)
+
+    class Meta:
+        abstract = True
+
+
+@reversion.register()
+class Property(CountyBaseModel):
+    parid = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return self.parid
@@ -23,7 +49,7 @@ class Property(models.Model):
 
 
 @reversion.register()
-class Owner(models.Model):
+class Owner(CountyBaseModel):
     """
     This is a list of all owners
     Jeffco ASTP600 file:
@@ -46,7 +72,7 @@ class Owner(models.Model):
         return self.name
 
 
-class Address(models.Model):
+class Address(CountyBaseModel):
     """
     All addresses, owner (mailing) and property
     """
@@ -118,7 +144,7 @@ class OwnerAddress(Address):
         unique_together = ('idhash', 'owner')
 
 
-class Account(models.Model):
+class Account(CountyBaseModel):
     property = models.ForeignKey(Property)
     tax_year = models.IntegerField(default=None, null=False)
     tax_type = models.CharField(max_length=64)
@@ -132,7 +158,7 @@ class Account(models.Model):
                                                           self.amount)
 
 
-class LienAuction(models.Model):
+class LienAuction(CountyBaseModel):
     property = models.ForeignKey(Property)
     face_value = models.DecimalField(max_digits=12, decimal_places=2)
     name = models.CharField(max_length=255)

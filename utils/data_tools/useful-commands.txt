@@ -1,0 +1,5 @@
+python manage.py download_assessor_data --county=grand --round-wait-seconds=60 --parts=100
+python manage.py download_assessor_data --county=grand --merge
+python manage.py download_treasurer_data --county=grand
+python manage.py download_treasurer_data --county=grand --merge
+python manage.py import_co_data --county=grand --api-url=http://localhost:82 --api-username=admin --api-password=test1234 --owners-csv-path=assessor-downloads/grand/total.csv --auction-csv-path=../utils/data_tools/grand/taxsale/2013_Grand_Results.csv --accounts-csv-path=treasurer-downloads/grand/accounts.csv

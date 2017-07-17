@@ -54,6 +54,9 @@ MIDDLEWARE_CLASSES = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'reversion.middleware.RevisionMiddleware',
+
+    # app middlewares
+    'prop.middleware.CurrentCountyMiddleware',
 ]
 
 REST_FRAMEWORK = {
@@ -61,6 +64,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'coprop.helpers.utils.CustomDjangoModelPermissions'
     ],
+    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
+    'DEFAULT_VERSION': 'v1',
+    'ALLOWED_VERSIONS': ['v1'],
+    'VERSION_PARAM': 'version',
     'DEFAULT_PAGINATION_CLASS': 'coprop.helpers.utils.CustomPagination',
     'DEFAULT_FILTER_BACKENDS': ('rest_framework.filters.DjangoFilterBackend',
                                 'rest_framework.filters.OrderingFilter'),
@@ -125,8 +132,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'coprop.wsgi.application'
 
-LOGIN_URL = '/api/v1/'
-LOGIN_REDIRECT_URL = '/api/v1/'
+LOGIN_URL = '/'
+LOGIN_REDIRECT_URL = '/'
 
 
 # Database
@@ -185,3 +192,5 @@ STATICFILES_DIRS = (
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+# coprop specific settings

@@ -9,7 +9,7 @@ class PropertyFilter(filters.FilterSet):
 
     class Meta:
         model = Property
-        fields = ["parid", "county", "min_timestamp", "max_timestamp"]
+        fields = ["parid", "min_timestamp", "max_timestamp"]
 
 
 class AccountFilter(filters.FilterSet):
