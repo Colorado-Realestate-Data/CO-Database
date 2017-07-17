@@ -1,4 +1,5 @@
 import simplejson as json
+from django.conf import settings
 from dateutil import parser
 from rest_framework import viewsets, serializers
 from rest_framework.response import Response
@@ -15,6 +16,8 @@ from .filters import PropertyFilter, AccountFilter, LienAuctionFilter, \
     AccountTaxTypeSummaryFilter, PropertyTaxTypeSummaryFilter
 
 
+COUNTY_BASE_ENDPOINT_PARAM = getattr(settings, 'COUNTY_BASE_ENDPOINT_PARAM', 'county')
+
 class CountyViewSetMixin(object):
     '''
     a base connty modelviewset class for all other viewsets.
@@ -25,7 +28,9 @@ class CountyViewSetMixin(object):
     county_url_kwarg = 'county'
 
     def county_filter(self, qs):
-        return qs.filter(county=self.request.county)
+        county = getattr(self.request, COUNTY_BASE_ENDPOINT_PARAM, None)
+        county_id = county and county.get('id')
+        return qs.filter(county=county_id)
 
     def get_queryset(self):
         return self.county_filter(super(CountyViewSetMixin, self).get_queryset())

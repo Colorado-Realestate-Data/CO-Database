@@ -2,8 +2,10 @@ import hashlib
 from django.db import models
 from django.utils import timezone
 from reversion import revisions as reversion
+from django.dispatch import receiver
+from django.db.models.signals import post_delete, post_save
 
-from prop.middleware import get_current_county_id
+from prop.middleware import get_current_county_id, clear_county_cached
 
 
 class County(models.Model):
@@ -172,3 +174,9 @@ class LienAuction(CountyBaseModel):
 
     class Meta:
         unique_together = ('property', 'tax_year')
+
+
+@receiver(post_save, sender=County)
+@receiver(post_delete, sender=County)
+def clear_ip_range_cache(sender, instance, *args, **kwargs):
+    clear_county_cached(instance.name)
