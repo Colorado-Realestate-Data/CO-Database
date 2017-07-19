@@ -51,7 +51,13 @@ class Command(BaseCommand):
 
     @staticmethod
     def strip_dict(d):
-        return {k: v and v.strip() for k, v in d.items()}
+        return {k: v.strip() if isinstance(v, str) else v for k, v in d.items()}
+
+    @staticmethod
+    def get_one_of_keys(d, *keys):
+        v = [d[k] for k in keys if k in d]
+        assert len(v) < 2, '2 keys[{}] exists for {} row'.format(keys, d)
+        return v[0] if v else None
 
     def get_property(self, parid):
         res = self.client.get(self.api_url('property'), {'parid': parid, 'county': self.county})['results']
@@ -143,7 +149,7 @@ class Command(BaseCommand):
         return account
 
     def add_lien_auction(self, row, property_parids):
-        parid = row.get('Parcel_ID')
+        parid = self.get_one_of_keys(row, 'Parcel_ID','Parcel', 'PARCEL')
         if property_parids is None:
             prop = self.get_property(parid)
         else:
@@ -151,12 +157,15 @@ class Command(BaseCommand):
         if not prop:
             print('!!! Unknown parid "{}"!!!'.format(parid))
             return None
+        name = self.get_one_of_keys(row, 'Name', 'Primary Name On Account', 'PRIMARY NAME ON ACCOUNT')
+        if None in row:
+            name = ' '.join([n.strip() for n in (row[None] + [name]) if (n and n.strip())])
         data = {
             'property': prop['id'],
-            'name': row.get('Name') or None,
-            'face_value': row.get('Face_Value') or None,
-            'tax_year': row.get('Tax_Year') or None,
-            'winning_bid': row.get('Winning_Bid') or None,
+            'name': name,
+            'face_value': self.get_one_of_keys(row, 'Face_Value', 'Face Amount', 'FACE AMOUNT') or None,
+            'tax_year': self.get_one_of_keys(row, 'Tax_Year') or None,
+            'winning_bid': self.get_one_of_keys(row, 'Winning_Bid', 'WinningBid', 'WINNINGPREMIUM') or None,
         }
         try:
             auction = self.client.post(self.api_url('lien_auction'), data)

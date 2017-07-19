@@ -47,7 +47,7 @@ class Property(CountyBaseModel):
         return self.parid
 
     class Meta:
-        unique_together = (("parid", "county"),)
+        unique_together = ("parid", "county")
 
 
 @reversion.register()
@@ -102,13 +102,15 @@ class Address(CountyBaseModel):
         """
         mash together the address values
         """
-        values = (self.street1, self.street2, self.city, self.state,
-                  self.zipcode, self.zip4)
+        values = (self.street1, self.street2, self.city, self.state, self.zipcode, self.zip4)
         h = ''.join(str(a).upper().replace(' ', '')
                     for a in values if a is not None).lstrip('0')
         if not h:
             return None
 
+        county_id = self.county_id or (self.county and self.county.id)
+        if county_id:
+            h = '{}{}'.format(h, county_id)
         return self._hashit(h.encode('u8')).hexdigest()
 
     def save(self, *args, **kwargs):
@@ -127,10 +129,11 @@ class PropertyAddress(Address):
     """
     All Property Address
     """
-    idhash = models.CharField(max_length=128, unique=True, editable=False,
-                              null=True)
+    idhash = models.CharField(max_length=128, editable=False, null=True)
     property = models.OneToOneField(Property, on_delete=models.CASCADE,
                                     unique=True, related_name='address')
+    class Meta:
+        unique_together = ('idhash', 'property')
 
 
 @reversion.register()

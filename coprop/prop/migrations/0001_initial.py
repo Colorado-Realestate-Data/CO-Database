@@ -100,10 +100,6 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
-        migrations.AlterUniqueTogether(
-            name='property',
-            unique_together=set([('parid', 'county')]),
-        ),
         migrations.AddField(
             model_name='owner',
             name='properties',

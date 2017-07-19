@@ -69,7 +69,12 @@ class PropertySerializer(serializers.ModelSerializer):
     @transaction.atomic()
     def create(self, validated_data):
         address_data = validated_data.pop('address', None)
-        instance = super(PropertySerializer, self).create(validated_data)
+        try:
+            instance = super(PropertySerializer, self).create(validated_data)
+        except IntegrityError:
+            raise serializers.ValidationError({'property': {
+                'parid': ["Prperty with this parid already exists."]
+            }})
         if address_data:
             try:
                 PropertyAddress.objects.create(property=instance,
@@ -103,7 +108,14 @@ class PropertySerializer(serializers.ModelSerializer):
                 address.delete()
                 instance.address = None
 
-        return super(PropertySerializer, self).update(instance, validated_data)
+        try:
+            res = super(PropertySerializer, self).update(instance, validated_data)
+        except IntegrityError:
+            raise serializers.ValidationError({'property': {
+                'parid': ["Prperty with this parid already exists."]
+            }})
+        return res
+
 
 
 class OwnerSerializer(serializers.ModelSerializer):

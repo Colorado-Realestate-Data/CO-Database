@@ -1,7 +1,10 @@
+from django.db import IntegrityError
+from rest_framework.compat import set_rollback
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from rest_framework.permissions import DjangoModelPermissions
 from django_filters.filters import EMPTY_VALUES, OrderingFilter
+from rest_framework import status
 from rest_framework.pagination import PageNumberPagination, _positive_int
 
 
@@ -66,12 +69,15 @@ def custom_rest_exception_handler(exc, context):
     ''' Custom rest api exception handler '''
     from rest_framework import exceptions
     response = exception_handler(exc, context)
+    if isinstance(exc, IntegrityError) and ('already exists' in str(exc) or 'must make a unique set' in str(exc)):
+        data = {'detail': 'duplicate unique key'}
+        set_rollback()
+        return Response(data, status=status.HTTP_409_CONFLICT)
     if isinstance(exc, exceptions.NotAuthenticated):
-        response.status_code = 401
-    if isinstance(exc, exceptions.ValidationError) and \
-            ('already exists' in str(exc) or
-             'must make a unique set' in str(exc)):
-        response.status_code = 409
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+    if isinstance(exc, exceptions.ValidationError) and (
+            'already exists' in str(exc) or 'must make a unique set' in str(exc)):
+        response.status_code = status.HTTP_409_CONFLICT
 
     return response
 
