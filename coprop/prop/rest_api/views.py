@@ -1,3 +1,5 @@
+import inspect
+import sys
 import simplejson as json
 from django.conf import settings
 from dateutil import parser
@@ -96,15 +98,16 @@ class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixi
     ordering = 'id'
     filter_class = PropertyFilter
 
-    @list_route(filter_class=PropertyTaxTypeSummaryFilter, queryset=Account.objects, url_path='(?P<pk>[0-9]+)/tax_type_summary')
+    @list_route(filter_class=PropertyTaxTypeSummaryFilter, queryset=Account.objects,
+                url_path='(?P<pk>[0-9]+)/tax_type_summary', ordering_fields=['tax_year', 'amounts', 'tax_type'])
     def tax_type_summary(self, request, *args, **kwargs):
         prop_queryset = self.county_filter(Property.objects.all())
         prop = get_object_or_404(prop_queryset, pk=self.kwargs['pk'])
         self.check_object_permissions(self.request, prop)
 
         qs = prop.account_set.values('tax_type', 'tax_year').annotate(amounts=Sum('amount'))
-        filters = self.filter_class(request.query_params, queryset=qs)
-        results = [r for r in filters.qs]
+        filtered_qs = self.filter_queryset(qs)
+        results = [r for r in filtered_qs]
         return Response(results)
 
 
@@ -149,11 +152,11 @@ class AccountView(CountyViewSetMixin, viewsets.ModelViewSet):
     filter_class = AccountFilter
     ordering = 'id'
 
-    @list_route(filter_class=AccountTaxTypeSummaryFilter)
+    @list_route(filter_class=AccountTaxTypeSummaryFilter, ordering_fields=['amounts', 'tax_type'])
     def tax_type_summary(self, request, *args, **kwargs):
         qs = self.get_queryset().values('tax_type').annotate(amounts=Sum('amount'))
-        filters = self.filter_class(request.query_params, queryset=qs)
-        results = [r for r in filters.qs]
+        filtered_qs = self.filter_queryset(qs)
+        results = [r for r in filtered_qs]
         return Response(results)
 
 
@@ -165,3 +168,21 @@ class LienAuctionView(CountyViewSetMixin, viewsets.ModelViewSet):
     ordering_fields = '__all__'
     filter_class = LienAuctionFilter
     ordering = 'id'
+
+
+# #############################################################################################
+# !!! dont touch this section. we need this section to patch some views to inject some data !!!
+# #############################################################################################
+def _perd(c):
+    return inspect.isclass(c) and c.__module__ == _perd.__module__
+
+classes = inspect.getmembers(sys.modules[__name__], _perd)
+for class_name, klass in classes:
+    if not issubclass(klass, CountyViewSetMixin) or not issubclass(klass, viewsets.ModelViewSet):
+        continue
+    if getattr(klass, 'ordering_fields') == '__all__':
+        qs = getattr(klass, 'queryset', None)
+        model = qs and getattr(qs, 'model', None)
+        if not model:
+            continue
+        klass.ordering_fields = [f.name for f in model._meta.fields if f.name != 'county']

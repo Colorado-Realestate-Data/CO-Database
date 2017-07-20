@@ -181,9 +181,9 @@ class LienAuctionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-# ##################################################################################################
-# !!! dont touch this section. we need this section to hack some serializers to inject some data !!!
-# ##################################################################################################
+# ###################################################################################################
+# !!! dont touch this section. we need this section to patch some serializers to inject some data !!!
+# ###################################################################################################
 def _perd(c):
     return inspect.isclass(c) and c.__module__ == _perd.__module__
 
