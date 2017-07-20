@@ -34,7 +34,7 @@ class AccountTaxTypeSummaryFilter(filters.FilterSet):
 
     class Meta:
         model = Account
-        fields = ['tax_year', 'min_tax_year', 'max_tax_year', 'property__parid', ]
+        fields = ['tax_year', 'min_tax_year', 'max_tax_year', 'property', ]
 
 
 class PropertyTaxTypeSummaryFilter(filters.FilterSet):

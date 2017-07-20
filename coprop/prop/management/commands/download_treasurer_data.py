@@ -1,6 +1,7 @@
 import csv
 import os
 import sys
+import time
 import glob
 import shutil
 from datetime import datetime
@@ -34,7 +35,7 @@ class Command(BaseCommand):
     county = None
     DOWNLOAD_DIR = 'treasurer-downloads'
     EXPORT_FILE = 'accounts.csv'
-    ROUND_WAIT_SECONDS = 300
+    ROUND_WAIT_SECONDS = 0
 
     @property
     def county_conf(self):
@@ -117,11 +118,13 @@ class Command(BaseCommand):
 
         account_ids = LienAuction.objects.order_by('property__parid').values_list('property__parid',
                                                                                   flat=True).distinct()
+        print('+++ starting download [{}] accounts ...'.format(len(account_ids)))
         for account_id in account_ids:
             try:
                 self.download_account_tx(account_id)
             except Exception:
                 print('!!! Failed to download [{}] account.'.format(account_id))
+            time.sleep(self.round_wait_seconds)
         print('+++ Finished [{}] accounts.'.format(len(account_ids)))
 
     @staticmethod

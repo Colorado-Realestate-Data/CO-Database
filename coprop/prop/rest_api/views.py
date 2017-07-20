@@ -2,6 +2,7 @@ import simplejson as json
 from django.conf import settings
 from dateutil import parser
 from rest_framework import viewsets, serializers
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import detail_route, list_route
 from django.db.models import Sum
@@ -95,14 +96,16 @@ class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixi
     ordering = 'id'
     filter_class = PropertyFilter
 
-    @detail_route()
+    @list_route(filter_class=PropertyTaxTypeSummaryFilter, queryset=Account.objects, url_path='(?P<pk>[0-9]+)/tax_type_summary')
     def tax_type_summary(self, request, *args, **kwargs):
-        object = self.get_object()
-        qs = object.account_set.values('tax_type', 'tax_year').annotate(amounts=Sum('amount'))
-        filters = PropertyTaxTypeSummaryFilter(request.query_params, queryset=qs)
+        prop_queryset = self.county_filter(Property.objects.all())
+        prop = get_object_or_404(prop_queryset, pk=self.kwargs['pk'])
+        self.check_object_permissions(self.request, prop)
+
+        qs = prop.account_set.values('tax_type', 'tax_year').annotate(amounts=Sum('amount'))
+        filters = self.filter_class(request.query_params, queryset=qs)
         results = [r for r in filters.qs]
         return Response(results)
-
 
 
 class OwnerView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
@@ -146,10 +149,10 @@ class AccountView(CountyViewSetMixin, viewsets.ModelViewSet):
     filter_class = AccountFilter
     ordering = 'id'
 
-    @list_route()
+    @list_route(filter_class=AccountTaxTypeSummaryFilter)
     def tax_type_summary(self, request, *args, **kwargs):
         qs = self.get_queryset().values('tax_type').annotate(amounts=Sum('amount'))
-        filters = AccountTaxTypeSummaryFilter(request.query_params, queryset=qs)
+        filters = self.filter_class(request.query_params, queryset=qs)
         results = [r for r in filters.qs]
         return Response(results)
 
