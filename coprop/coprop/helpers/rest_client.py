@@ -97,3 +97,11 @@ class RestClient(object):
         if not raw_response:
             res = self.get_json(res)
         return res
+
+
+if __name__ == '__main__':
+    api_url = 'http://35.164.55.7:81/'
+    username = '<USERNAME>'
+    password = '<PASS>'
+    client = RestClient(api_url, username, password)
+    client.get('grand/api/v1/property')
