@@ -9,7 +9,7 @@ SOCKFILE=$PROJECTDIR/run/$NAME.sock
 USER=appuser                                        # the user to run as
 GROUP=appuser                                     # the group to run as
 NUM_WORKERS=3                                    # how many worker processes should Gunicorn spawn
-DJANGO_SETTINGS_MODULE=coprop.settings.prod             # which settings file should Django use
+DJANGO_SETTINGS_MODULE=coprop.settings.main             # which settings file should Django use
 DJANGO_WSGI_MODULE=coprop.wsgi                     # WSGI module name
 
 echo "Starting $NAME as `whoami`"
