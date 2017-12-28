@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<!--[if IE 8]> <html lang="en" class="ie8 no-js"> <![endif]-->
+<!--[if IE 9]> <html lang="en" class="ie9 no-js"> <![endif]-->
+<!--[if !IE]><!-->
+<html lang="en" class="no-js">
+<!--<![endif]-->
+<head>
+<meta charset="utf-8"/>
+<title>Co Database ::</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="" name="description"/>
+<meta content="" name="author"/>
+<style>
+body {
+    background-image:url('data:image/svg+xml;utf8,<svg version="1.1" id="loader-1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="40px" height="40px" viewBox="0 0 50 50" style="enable-background:new 0 0 50 50;" xml:space="preserve"><path fill="#fff" d="M43.935,25.145c0-10.318-8.364-18.683-18.683-18.683c-10.318,0-18.683,8.365-18.683,18.683h4.068c0-8.071,6.543-14.615,14.615-14.615c8.072,0,14.615,6.543,14.615,14.615H43.935z" transform="rotate(70.0002 25 25)"><animateTransform attributeType="xml" attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite"></animateTransform></path></svg>');
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center;
+}
+</style>
+<link href="/static/assets/global/plugins/googleapifonts/OpenSans.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/simple-line-icons/simple-line-icons.min.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/select2/select2.min.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/bootstrap-datetimepicker/bootstrap-datetimepicker.min.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/jquery-treetable/jquery.treetable.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/jquery-treetable/jquery.treetable.theme.default.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/plugins/vue-multiselect/vue-multiselect.min.css" rel="stylesheet" type="text/css"/>
+
+<!-- DOC: To use 'rounded corners' style just load 'components-rounded.css' stylesheet instead of 'components.css' in the below style tag -->
+<link href="/static/assets/global/css/components.css" id="style_components" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/global/css/plugins.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/admin/layout2/css/layout.css" rel="stylesheet" type="text/css"/>
+<link href="/static/assets/admin/layout2/css/themes/default.css" rel="stylesheet" type="text/css" id="style_color"/>
+<link href="/static/assets/admin/layout2/css/custom.css" rel="stylesheet" type="text/css"/>
+<!-- END THEME STYLES -->
+<link rel="shortcut icon" href="favicon.ico"/>
+</head>
+<!-- END HEAD -->
+<!-- BEGIN BODY -->
+<body class="page-sidebar-fixed page-header-fixed page-sidebar-closed-hide-logo page-container-bg-solid page-sidebar-closed-hide-logo hide">
+<div id="co_database-app">
+    <main-header></main-header>
+    <div class="clearfix">
+    </div>
+    <div class="page-container">
+        <side-menu></side-menu>
+        <div class="page-content-wrapper">
+            <keep-alive include="files,include-paths,exclude-patterns,admin-users,admin_groups">
+                <router-view class="page-content"></router-view>
+            </keep-alive>
+        </div>
+    </div>
+    <div class="page-footer">
+        <div class="page-footer-inner">
+             2017 &copy; Cinnamon Hills.
+        </div>
+    </div>
+    <div class="scroll-to-top">
+        <i class="icon-arrow-up"></i>
+    </div>
+</div>
+
+<!-------------------------------------------------------------------->
+<!------------------ START Define Vue TEMPLATES ---------------------->
+<!-------------------------------------------------------------------->
+
+<!--------------------------- Util Templates ------------------------->
+<script type="text/x-template" id="confirm-template">
+    <div>
+        <button v-show="!confirm" @click.prevent="confirm=!confirm" :class="btnClass">
+            <slot></slot>
+        </button>
+        <span v-show="confirm" :class="sureClass">
+			{{sureText}}
+		</span>
+        <button v-show="confirm" class="btn" @click.prevent="func" :class="yesClass" :disabled="confirming">
+            <span v-show="!confirming">{{yesText}}</span>
+            <span v-show="confirming"><span :class="confirmingIconClass"></span> {{confirmingText}}</span>
+        </button>
+        <button v-show="confirm" class="btn" @click.prevent="confirm=!confirm" :class="noClass">
+            {{noText}}
+        </button>
+    </div>
+</script>
+
+<script type="text/x-template" id="vuetable-pagination-bootstrap-template">
+    <ul class="pagination">
+        <li :class="{'disabled': isOnFirstPage}" title="First Page">
+            <a @click.prevent="loadPage(1)">
+                <span class="fa fa-angle-double-left"></span>
+            </a>
+        </li>
+
+        <li :class="{'disabled': isOnFirstPage}" title="Previous Page">
+            <a @click.prevent="loadPage('prev')">
+                <span class="fa fa-angle-left"></span>
+            </a>
+        </li>
+
+        <template v-if="notEnoughPages">
+            <li v-for="n in totalPage" :class="{'active': isCurrentPage(n)}">
+                <a @click.prevent="loadPage(n)" v-html="n"></a>
+            </li>
+        </template>
+        <template v-else>
+            <template v-if="windowStart!=1">
+                <li><a @click.prevent="loadPage(1)" v-html="1"></a></li>
+                <li class="disabled" v-if="windowStart>2"><a>...</a></li>
+            </template>
+
+            <li v-for="n in windowSize" :class="{'active': isCurrentPage(windowStart+n-1)}">
+                <a @click.prevent="loadPage(windowStart+n-1)" v-html="windowStart+n-1"></a>
+            </li>
+            <template v-if="windowSize+windowStart<totalPage+1">
+                <li class="disabled" v-if="windowSize+windowStart<=totalPage"><a>...</a></li>
+                <li><a @click.prevent="loadPage(totalPage)" v-html="totalPage"></a></li>
+            </template>
+
+        </template>
+
+        <li :class="{'disabled': isOnLastPage}" title="Next Page">
+            <a @click.prevent="loadPage('next')">
+                <span class="fa fa-angle-right"></span>
+            </a>
+        </li>
+
+        <li :class="{'disabled': isOnLastPage}" title="Last Page">
+            <a @click.prevent="loadPage(totalPage)">
+                <span class="fa fa-angle-double-right"></span>
+            </a>
+        </li>
+    </ul>
+</script>
+
+<!--------------------------- App Templates ------------------------->
+<script type="text/x-template" id="mainheader-template">
+<div class="page-header navbar navbar-fixed-top">
+    <!-- BEGIN HEADER INNER -->
+    <div class="page-header-inner">
+        <!-- BEGIN LOGO -->
+        <div class="page-logo">
+            <a href="index.html">
+            <img src="/static/assets/admin/layout2/img/logo-default.png" alt="logo" class="logo-default"/>
+            </a>
+            <div class="menu-toggler sidebar-toggler">
+                <!-- DOC: Remove the above "hide" to enable the sidebar toggler button on header -->
+            </div>
+            <p v-if="$store.getters.isAdminViewType" class="logo-title-admin logo-default">[Admin panel]</p>
+        </div>
+        <!-- END LOGO -->
+        <!-- BEGIN RESPONSIVE MENU TOGGLER -->
+        <a href="javascript:" class="menu-toggler responsive-toggler" data-toggle="collapse" data-target=".navbar-collapse">
+        </a>
+        <!-- END RESPONSIVE MENU TOGGLER -->
+        <div v-if="$store.getters.isUserViewType" class="page-actions">
+            <div class="btn-group">
+                <button type="button" class="btn btn-circle btn-outline dropdown-toggle" data-toggle="dropdown">
+                    <i class="fa fa-exchange"></i> County ({{ ($store.getters.getCurrentCounty || {}).display_name }}) <i class="fa fa-angle-down"></i>
+                </button>
+                <ul class="dropdown-menu" role="menu">
+                    <li v-for="county in $store.getters.allCounties">
+                        <a @click="$store.state.currentCounty=county;" :class="{'text-bold text-italic': $store.state.currentCounty.id === county.id}"><i class="icon-flag"></i> {{ county.display_name }} </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div v-if="$store.getters.isAdminViewType" class="page-actions">
+            <a title="Add New User" is="router-link" :to="{name: 'admin_new_user'}" class="btn btn-circle btn-outline green"><span class="fa fa-plus"></span><span class="hidden-xs"> New</span> User</a>
+        </div>
+        <!-- BEGIN PAGE TOP -->
+        <div class="page-top" :class="{'admin-header': $store.getters.isAdminViewType}">
+            <!-- BEGIN TOP NAVIGATION MENU -->
+            <div class="top-menu">
+
+                <ul class="nav navbar-nav pull-right">
+                    <!-- END TODO DROPDOWN -->
+                    <!-- BEGIN USER LOGIN DROPDOWN -->
+                    <!-- DOC: Apply "dropdown-dark" class after below "dropdown-extended" to change the dropdown styte -->
+                    <li class="dropdown dropdown-extended dropdown-toggle" v-if="$store.getters.isStaffUser">
+                        <template v-if="$store.getters.isUserViewType">
+                        <a class="dropdown-toggle" is="router-link" :to="{name: 'admin_root'}">
+                        <i class="fa fa-user-secret"></i> Switch to Admin panel <span class="fa fa-exchange"></span>
+                        </a>
+                        </template>
+                        <template v-if="$store.getters.isAdminViewType">
+                        <a class="dropdown-toggle" is="router-link" :to="{name: 'root'}">
+                        <i class="fa fa-user"></i> Switch to User panel <span class="fa fa-exchange"></span>
+                        </a>
+                        </template>
+                    </li>
+                    <li class="dropdown dropdown-user">
+                        <a href="javascript:" class="dropdown-toggle" data-toggle="dropdown" data-hover="dropdown" data-close-others="true">
+                        <img class="img-avatar img-avatar40 img-circle" :src="($store.state.currentUser.profile && $store.state.currentUser.profile.avatar) || '/static/assets/global/img/avatar_blank.jpg'"
+                                 err-src="/static/assets/global/img/avatar_blank.jpg" alt="">
+                        <span class="username username-hide-on-mobile">
+                        {{$store.state.currentUser.username}} </span>
+                        <i class="fa fa-angle-down"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-default">
+                            <li>
+                                <a is="router-link" :to="{name: $store.getters.isAdminViewType? 'admin_myprofile': 'myprofile'}">
+                                <i class="icon-user"></i> My Profile </a>
+                            </li>
+                            <li>
+                                <a>
+                                <i class="icon-settings"></i> Settings </a>
+                            </li>
+                            <li class="divider"></li>
+                            <li>
+                                <a @click="logout">
+                                <i class="icon-logout"></i> Log Out </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <!-- END USER LOGIN DROPDOWN -->
+                </ul>
+            </div>
+            <!-- END TOP NAVIGATION MENU -->
+        </div>
+        <!-- END PAGE TOP -->
+    </div>
+    <!-- END HEADER INNER -->
+</div>
+</script>
+
+<script type="text/x-template" id="sidemenu-template">
+<div class="page-sidebar-wrapper">
+    <!-- DOC: Set data-auto-scroll="false" to disable the sidebar from auto scrolling/focusing -->
+    <!-- DOC: Change data-auto-speed="200" to adjust the sub menu slide up/down speed -->
+    <div class="page-sidebar navbar-collapse collapse" :class="{'admin-sidebar': $store.getters.isAdminViewType}">
+        <!-- BEGIN SIDEBAR MENU -->
+        <!-- BEGIN ADMIN MENU -->
+        <ul v-if="$store.getters.isAdminViewType" class="page-sidebar-menu page-sidebar-menu-accordion-submenu" data-keep-expanded="false" data-auto-scroll="true" data-slide-speed="100">
+            <li class="start" :class="{active: isActive('admin_dashboard')}">
+                <a is="router-link" :to="{name: 'admin_dashboard'}">
+                <i class="fa fa-home"></i>
+                <span class="title">Dashboard</span>
+                <span class="selected"></span>
+                </a>
+            </li>
+            <li class="start" :class="{active: isActive('admin_users', 'admin_new_user', 'admin_edit_user', 'admin_change_password_user')}">
+                <a is="router-link" :to="{name: 'admin_users'}">
+                <i class="fa fa-user"></i>
+                <span class="title">Users</span>
+                <span class="selected"></span>
+                </a>
+            </li>
+            <li class="start" :class="{active: isActive('admin_groups', 'admin_new_group', 'admin_edit_group')}">
+                <a is="router-link" :to="{name: 'admin_groups'}">
+                <i class="fa fa-group"></i>
+                <span class="title">Groups</span>
+                <span class="selected"></span>
+                </a>
+            </li>
+        </ul>
+        <!-- END ADMIN MENU -->
+        <!-- BEGIN USER MENU -->
+        <ul v-else class="page-sidebar-menu page-sidebar-menu-accordion-submenu" data-keep-expanded="false" data-auto-scroll="true" data-slide-speed="100">
+            <li class="start" :class="{active: isActive('dashboard')}">
+                <a is="router-link" :to="{name: 'dashboard'}">
+                <i class="fa fa-home"></i>
+                <span class="title">Dashboard</span>
+                <span class="selected"></span>
+                </a>
+            </li>
+            <!--<li class="start" :class="{active: isActive('exclude_patterns', 'new_exclude_pattern', 'edit_exclude_pattern')}">
+                <a is="router-link" :to="{name: 'exclude_patterns'}">
+                <i class="fa fa-folder"></i>
+                <span class="title">Exclude Patterns</span>
+                <span class="selected"></span>
+                </a>
+            </li>-->
+        </ul>
+        <!-- END USER MENU -->
+        <!-- END SIDEBAR MENU -->
+    </div>
+</div>
+</script>
+
+<script type="text/x-template" id="pagebar-template">
+<div>
+    <div class="page-bar">
+        <ul class="page-breadcrumb">
+            <slot name="breadcrumb-items">
+            <li>
+                <a is="router-link" :to="{name: $store.getters.isAdminViewType? 'admin_root': 'root'}"><i class="fa fa-home"></i> Home</a>
+                <i class="fa fa-angle-right"></i>
+            </li>
+            <li v-if="$route.meta.pageInfo.back">
+                <a is="router-link" :to="{name: $route.meta.pageInfo.back}">{{$router.resolve({name: $route.meta.pageInfo.back}).resolved.meta.pageInfo.title}}</a>
+                <i class="fa fa-angle-right"></i>
+            </li>
+            </slot>
+            <slot name="breadcrumb-title">
+            <li>
+                <span>{{$route.meta.pageInfo.title}}</span>
+            </li>
+            </slot>
+        </ul>
+    </div>
+    <slot name="pre-title"></slot>
+    <slot name="title">
+    <h3 class="page-title">
+        {{$route.meta.pageInfo.title}} <small>{{$route.meta.pageInfo.titleDesc}}</small>
+    </h3>
+    </slot>
+    <slot name="post-title"></slot>
+    <div class="clearfix">
+    </div>
+</div>
+</script>
+
+<script type="text/x-template" id="dashboard-template">
+<div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+    <page-bar></page-bar>
+    <div class="row">
+        <div class="col-md-6 col-sm-6">
+            <!-- BEGIN PORTLET-->
+            <div class="portlet light ">
+                <div class="portlet-title">
+                    <div class="caption">
+                        <i class="icon-bar-chart font-green-sharp hide"></i>
+                        <span class="caption-subject font-green-sharp bold uppercase">Site Visits</span>
+                        <span class="caption-helper">weekly stats...</span>
+                    </div>
+                    <div class="actions">
+                        <div class="btn-group btn-group-devided" data-toggle="buttons">
+                            <label class="btn btn-transparent grey-salsa btn-circle btn-sm active">
+                            <input type="radio" name="options" class="toggle" id="option1">New</label>
+                            <label class="btn btn-transparent grey-salsa btn-circle btn-sm">
+                            <input type="radio" name="options" class="toggle" id="option2">Returning</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="portlet-body">
+                    <div id="site_statistics_loading">
+                        <img src="./assets/admin/layout2/img/loading.gif" alt="loading"/>
+                    </div>
+                    <div id="site_statistics_content" class="display-none">
+                        <div id="site_statistics" class="chart">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END PORTLET-->
+        </div>
+        <div class="col-md-6 col-sm-6">
+            <!-- BEGIN PORTLET-->
+            <div class="portlet light ">
+                <div class="portlet-title">
+                    <div class="caption">
+                        <i class="icon-share font-red-sunglo hide"></i>
+                        <span class="caption-subject font-red-sunglo bold uppercase">Revenue</span>
+                        <span class="caption-helper">monthly stats...</span>
+                    </div>
+                    <div class="actions">
+                        <div class="btn-group">
+                            <a href="" class="btn grey-salsa btn-circle btn-sm dropdown-toggle" data-toggle="dropdown" data-hover="dropdown" data-close-others="true">
+                            Filter Range&nbsp;<span class="fa fa-angle-down">
+                            </span>
+                            </a>
+                            <ul class="dropdown-menu pull-right">
+                                <li>
+                                    <a href="javascript:;">
+                                    Q1 2014 <span class="label label-sm label-default">
+                                    past </span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="javascript:;">
+                                    Q2 2014 <span class="label label-sm label-default">
+                                    past </span>
+                                    </a>
+                                </li>
+                                <li class="active">
+                                    <a href="javascript:;">
+                                    Q3 2014 <span class="label label-sm label-success">
+                                    current </span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="javascript:;">
+                                    Q4 2014 <span class="label label-sm label-warning">
+                                    upcoming </span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="portlet-body">
+                    <div id="site_activities_loading">
+                        <img src="./assets/admin/layout2/img/loading.gif" alt="loading"/>
+                    </div>
+                    <div id="site_activities_content" class="display-none">
+                        <div id="site_activities" style="height: 228px; width: 100%">
+                        </div>
+                    </div>
+                    <div style="margin: 20px 0 10px 30px">
+                        <div class="row">
+                            <div class="col-md-3 col-sm-3 col-xs-6 text-stat">
+                                <span class="label label-sm label-success">
+                                Revenue: </span>
+                                <h3>$13,234</h3>
+                            </div>
+                            <div class="col-md-3 col-sm-3 col-xs-6 text-stat">
+                                <span class="label label-sm label-danger">
+                                Shipment: </span>
+                                <h3>$1,134</h3>
+                            </div>
+                            <div class="col-md-3 col-sm-3 col-xs-6 text-stat">
+                                <span class="label label-sm label-primary">
+                                Orders: </span>
+                                <h3>235090</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END PORTLET-->
+        </div>
+    </div>
+</div>
+</script>
+
+<script type="text/x-template" id="myprofile-template">
+<div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+    <page-bar></page-bar>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="portlet light">
+                <div class="portlet-title tabbable-line">
+                    <div class="caption caption-md">
+                        <i class="icon-globe theme-font hide"></i>
+                        <span class="caption-subject font-blue-madison bold uppercase">Profile Account</span>
+                    </div>
+                    <ul class="nav nav-tabs">
+                        <li class="active">
+                            <a data-target="#tab_personal_info" data-toggle="tab">Personal Info</a>
+                        </li>
+                        <li>
+                            <a data-target="#tab_change_avatar" data-toggle="tab">Change Avatar</a>
+                        </li>
+                        <li>
+                            <a data-target="#tab_change_password" data-toggle="tab">Change Password</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="portlet-body">
+                    <div class="tab-content">
+                        <!-- PERSONAL INFO TAB -->
+                        <div class="tab-pane active" id="tab_personal_info">
+                            <form name="profilePersonalInfo" role="form" @submit.prevent="saveProfileInfo">
+                                <div class="form-group">
+                                    <label class="control-label">Username</label>
+                                    <input type="text" class="form-control" readonly :value="$store.state.currentUser.username" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">First Name</label>
+                                    <input type="text" placeholder="John" class="form-control" v-model="userProfile.first_name"/>
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">Last Name</label>
+                                    <input type="text" placeholder="Doe" class="form-control" v-model="userProfile.last_name" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">E-mail</label>
+                                    <input type="text" placeholder="example@email.com" class="form-control" v-model="userProfile.email" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">Gender</label>
+                                    <div>
+                                        <label class="radio-inline">
+                                            <input type="radio" v-model="userProfile.profile.gender" value="m">Male
+                                        </label>
+                                        <label class="radio-inline">
+                                            <input type="radio" v-model="userProfile.profile.gender" value="f">Female
+                                        </label>
+                                        <label class="radio-inline">
+                                            <input type="radio" v-model="userProfile.profile.gender" value="u">Unknown
+                                        </label>
+                                    </div>
+
+                                </div>
+                                <div class="margiv-top-10">
+                                    <button type="submit" name="submitBtn" class="btn green-haze"  :disabled="savingPersonalInfo">
+                                    <i :class="savingPersonalInfo? 'fa fa-spin fa-spinner':'fa fa-save'"></i>
+                                    <span v-show="!savingPersonalInfo">Save</span>
+                                    <span v-show="savingPersonalInfo">Saving</span>
+                                    </button>
+                                    <a is="router-link" :to="{name: $store.getters.isAdminViewType? 'admin_dashboard': 'dashboard'}" class="btn btn-default">
+                                    Cancel </a>
+
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- CHANGE AVATAR TAB -->
+                        <div class="tab-pane" id="tab_change_avatar">
+                            <div class="">
+                                <img class="img-avatar img-avatar128h thumbnail" :src="($store.state.currentUser.profile && $store.state.currentUser.profile.avatar) || '/static/assets/global/img/avatar_blank.jpg'"alt="">
+                            </div>
+                            <div class="">
+
+                                <span :func="deleteAvatar" is="confirm" v-if="$store.state.currentUser.profile && $store.state.currentUser.profile.avatar" btn-class="btn btn-sm btn-danger" sure-class="text-danger" yes-class="btn-danger btn-sm" no-class="btn-default btn-sm mar-left0" confirming-icon-class="fa fa-spin fa-spinner" class="inline" :confirming="deletingAvatar">
+                                    <span><i class="fa fa-trash push-5-r"></i> Delete Avatar</span>
+                                </span>
+
+                                <button class="btn btn-sm btn-primary" type="button" @click="updateAvatar"
+                                        :disabled="!profileChosenFile || uploadingAvatar" :title="profileChosenFile ? 'Push to upload chosen avatar' : 'No new avatar chosen!'">
+                                    <span v-if="!uploadingAvatar"><i class="fa fa-upload push-5-r"></i> Upload Avatar</span>
+                                    <span v-if="uploadingAvatar"><i class="fa fa-spinner fa-spin push-5-r"></i> Uploading ...</span>
+                                </button>
+                                <label class="btn btn-default btn-sm" :disabled="uploadingAvatar"><span
+                                        class="fa fa-file-photo-o"></span>
+                                    Choose Avatar <input type="file" id="profile_image" name="profile_image"
+                                                         accept="image/jpeg, image/png" style="display: none;"
+                                                         @change="onChangeProfileFile">
+                                </label>
+                                <span v-if="profileChosenFile">{{ profileChosenFile.name }}
+                                    <button type="button" class="btn btn-link" @click="clearChosenAvatar" title="Clear chosen image"><span class="fa fa-close"></span></button>
+                                </span>
+                                <span v-if="!profileChosenFile" class="text-muted">No Image Chosen</span>
+                            </div>
+                        </div>
+
+                        <!-- CHANGE PASSWORD TAB -->
+                        <div class="tab-pane" id="tab_change_password">
+                            <form name="profileChangePassword" @submit.prevent="changePassword">
+                                <div class="form-group">
+                                    <label class="control-label">Current Password</label>
+                                    <input name="current_password" type="password" class="form-control" v-model="userPassword.current_password" required/>
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label">New Password</label>
+                                    <input id="new_password" name="new_password" type="password" class="form-control" v-model="userPassword.new_password" required/>
+                                </div>
+                                <div class="form-group" :class="{'has-error': !passwordMatched}">
+                                    <label class="control-label">Re-type New Password</label>
+                                    <input id="re_new_password" name="re_new_password" type="password" class="form-control" v-model="userPassword.re_new_password" required/>
+                                    <span class="help-block" v-show="!passwordMatched"> Mismatched re-type password </span>
+                                </div>
+                                <div class="margin-top-10">
+                                    <button type="submit" name="submitBtn" class="btn green-haze" :disabled="!userPassword.new_password || !passwordMatched || changingPassword">
+                                    <i :class="changingPassword? 'fa fa-spin fa-spinner':'fa fa-save'"></i>
+                                    <span v-show="!changingPassword">Change Password</span>
+                                    <span v-show="changingPassword">Changing</span>
+                                    </button>
+                                    <a is="router-link" :to="{name: $store.getters.isAdminViewType? 'admin_dashboard': 'dashboard'}" class="btn btn-default"> Cancel </a>
+
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- END CHANGE PASSWORD TAB -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- END PROFILE CONTENT -->
+</div>
+</script>
+
+<script type="text/x-template" id="excludepattern-list-template">
+    <div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+        <page-bar>
+            <div slot="pre-title" class="pull-right">
+                <a is="router-link" :to="{name: 'new_exclude_pattern'}" class="btn btn-success" title="Add New Exclude Pattern"><i class="fa fa-plus"></i><span class="hidden-xs"> New</span></a>
+                <button class="btn btn-primary" title="Refresh Table" @click="$refs.vuetable.visibleDetailRows=[];$refs.vuetable.refresh()"><i class="fa fa-refresh"></i><span class="hidden-xs"> Refresh</span></button>
+            </div>
+        </page-bar>
+
+        <div class="panel">
+            <div class="table-responsive">
+                <vuetable ref="vuetable"
+                          loading-class="loading"
+                          :api-url="tableUrl"
+                          :fields="tableFields"
+                          :css="css.table"
+                          class="excludepatterns-table"
+                          pagination-path="pagination"
+                          data-path="results"
+                          :per-page="tablePerPage"
+                          :append-params="tableFiltering"
+                          :http-options="tableHTTPOptions"
+                          :query-params="{sort: 'ordering', page: 'page', perPage: 'page_size'}"
+                          @vuetable:loaded="OnLoadedData"
+                          @vuetable:load-error="OnLoadErrorData"
+                          @vuetable:loading="OnLoadingData"
+                          @vuetable:pagination-data="onPaginationData">
+                    <template slot="actions" scope="props">
+                        <div class="custom-actions">
+                            <a is="router-link" :to="{name: 'edit_exclude_pattern', params: {record_id: props.rowData.id}}" class="btn btn-sm btn-primary" title="Edit record"><span class="fa fa-pencil fa-fw"></span></a>
+                            <button class="btn btn-sm btn-danger" @click="deleteRecord(props.rowData)" title="Delete record"><span class="fa fa-trash fa-fw"></span></button>
+                        </div>
+                    </template>
+                </vuetable>
+            </div>
+            <div class="pagination-wrapper row">
+                <span>
+                    Page Size:
+                    <select class="inline form-control input-sm page-size" v-model="tablePerPage">
+                        <option v-for="p in pageSizeOptions" :value="p">{{p || 'Max'}}</option>
+                    </select>
+                </span>
+                <vuetable-pagination-info ref="paginationInfo" class="inline text-muted" info-template="Displaying <strong>{from}</strong> to <strong>{to}</strong> of <strong>{total}</strong> items.">
+                </vuetable-pagination-info>
+                <vuetable-pagination class="pull-right" ref="pagination" @vuetable-pagination:change-page="onChangePage"></vuetable-pagination>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-template" id="excludepattern-form-template">
+<div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+    <page-bar></page-bar>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="portlet light">
+                <form role="form" @submit.prevent="saveRecord">
+                    <div class="form-group">
+                        <label class="control-label">Pattern(*)</label>
+                        <input type="text" placeholder="File Pattern" class="form-control" v-model="record.pattern" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="mt-checkbox"> Ignore History?
+                            <input type="checkbox" v-model="record.get_history" />
+                            <span></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="mt-checkbox"> Don't Scan?
+                            <input type="checkbox" v-model="record.get_scan" />
+                            <span></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="mt-checkbox"> Ignore Disk Usage?
+                            <input type="checkbox" v-model="record.get_usage" />
+                            <span></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="mt-checkbox"> Enabled?
+                            <input type="checkbox" v-model="record.active" />
+                            <span></span>
+                        </label>
+                    </div>
+                    <div class="margiv-top-10">
+                        <button type="submit" name="submitBtn" class="btn green-haze"  :disabled="saving">
+                        <i :class="saving? 'fa fa-spin fa-spinner':'fa fa-save'"></i>
+                        <span v-show="!saving">Save</span>
+                        <span v-show="saving">Saving</span>
+                        </button>
+                        <a is="router-link" :to="{name: 'exclude_patterns'}" class="btn btn-default">Cancel</a>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</script>
+
+<!-- Admin templates -->
+
+<script type="text/x-template" id="admin-user-list-template">
+    <div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+        <page-bar>
+            <div slot="pre-title" class="pull-right">
+                <a is="router-link" :to="{name: 'admin_new_user'}" class="btn btn-success" title="Add New User"><i class="fa fa-plus"></i><span class="hidden-xs"> New</span></a>
+                <button class="btn btn-primary" title="Refresh Table" @click="$refs.vuetable.visibleDetailRows=[];$refs.vuetable.refresh()"><i class="fa fa-refresh"></i><span class="hidden-xs"> Refresh</span></button>
+            </div>
+        </page-bar>
+
+        <div class="panel">
+            <div class="table-responsive">
+                <vuetable ref="vuetable"
+                          loading-class="loading"
+                          :api-url="tableUrl"
+                          :fields="tableFields"
+                          :css="css.table"
+                          class="admin-users-table"
+                          pagination-path="pagination"
+                          data-path="results"
+                          :per-page="tablePerPage"
+                          :append-params="tableFiltering"
+                          :http-options="tableHTTPOptions"
+                          :query-params="{sort: 'ordering', page: 'page', perPage: 'page_size'}"
+                          @vuetable:loaded="OnLoadedData"
+                          @vuetable:load-error="OnLoadErrorData"
+                          @vuetable:loading="OnLoadingData"
+                          @vuetable:pagination-data="onPaginationData">
+                    <template slot="username" scope="props">
+                        <a is="router-link" :to="{name: 'admin_edit_user', params: {record_id: props.rowData.id}}" class="nounderline">{{ props.rowData.username }}</a>
+                    </template>
+                    <template slot="actions" scope="props">
+                        <div class="custom-actions">
+                            <a is="router-link" :to="{name: 'admin_edit_user', params: {record_id: props.rowData.id}}" class="btn btn-sm btn-primary" title="Edit record"><span class="fa fa-pencil fa-fw"></span></a>
+                            <button class="btn btn-sm btn-danger" @click="deleteRecord(props.rowData)" title="Delete record"><span class="fa fa-trash fa-fw"></span></button>
+                        </div>
+                    </template>
+                </vuetable>
+            </div>
+            <div class="pagination-wrapper row">
+                <span>
+                    Page Size:
+                    <select class="inline form-control input-sm page-size" v-model="tablePerPage">
+                        <option v-for="p in pageSizeOptions" :value="p">{{p || 'Max'}}</option>
+                    </select>
+                </span>
+                <vuetable-pagination-info ref="paginationInfo" class="inline text-muted" info-template="Displaying <strong>{from}</strong> to <strong>{to}</strong> of <strong>{total}</strong> items.">
+                </vuetable-pagination-info>
+                <vuetable-pagination class="pull-right" ref="pagination" @vuetable-pagination:change-page="onChangePage"></vuetable-pagination>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-template" id="admin-user-form-template">
+<div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+    <page-bar>
+        <template slot="breadcrumb-title">
+            <li><span>{{record.username}}</span></li>
+        </template>
+    </page-bar>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="portlet light">
+                <form role="form" @submit.prevent="saveRecord">
+                    <div class="form-group">
+                        <label class="control-label">Username(*)</label>
+                        <input type="text" placeholder="Username" class="form-control" v-model="record.username" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">E-mail</label>
+                        <input type="email" placeholder="E-mail" class="form-control" v-model="record.email" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">First Name</label>
+                        <input type="text" placeholder="First Name" class="form-control" v-model="record.first_name" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Last Name</label>
+                        <input type="text" placeholder="Last Name" class="form-control" v-model="record.last_name" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Groups</label>
+                        <multiselect v-model="record._groups" :multiple="true" label="name" track-by="name" :options="$store.getters.allGroups" placeholder="User Groups">
+                            <template slot="clear" slot-scope="props">
+                                <span class="fa fa-close multiselect__clear" title="Clear" v-if="record._groups && record._groups.length" @mousedown.prevent.stop="record._groups=[]"></span>
+                            </template>
+                        </multiselect>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Permissions</label>
+                        <multiselect v-model="record._user_permissions" :multiple="true" label="name" track-by="name" :options="$store.getters.allPermissions" placeholder="User Permissions">
+                            <template slot="clear" slot-scope="props">
+                                <span class="fa fa-close multiselect__clear" title="Clear" v-if="record._user_permissions && record._user_permissions.length" @mousedown.prevent.stop="record._user_permissions=[]"></span>
+                            </template>
+                        </multiselect>
+                    </div>
+                    <div class="form-group">
+                        <label class="mt-checkbox"> Is Staff?
+                            <input type="checkbox" v-model="record.is_staff" />
+                            <span></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="mt-checkbox"> Is Superuser?
+                            <input type="checkbox" v-model="record.is_superuser" />
+                            <span></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="mt-checkbox"> Is Active?
+                            <input type="checkbox" v-model="record.is_active" />
+                            <span></span>
+                        </label>
+                    </div>
+                    <div class="margiv-top-10">
+                        <button type="submit" name="submitBtn" class="btn green-haze" :disabled="saving">
+                        <i :class="saving? 'fa fa-spin fa-spinner':'fa fa-save'"></i>
+                        <span v-show="!saving">Save</span>
+                        <span v-show="saving">Saving</span>
+                        </button>
+                        <a is="router-link" :to="{name: 'admin_users'}" class="btn btn-default">Cancel</a>
+                        <div class="pull-right">
+                            <a is="router-link" :to="{name: 'admin_change_password_user', params: {record_id: $route.params.record_id}}" class="btn btn-warning">
+                                <i class="fa fa-key"></i> Change Password
+                            </a>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</script>
+
+<script type="text/x-template" id="admin-user-change-password-template">
+<div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+    <page-bar>
+        <template slot="breadcrumb-title">
+            <li>
+                <a is="router-link" :to="{name: 'admin_users'}">{{$router.resolve({name: 'admin_users'}).resolved.meta.pageInfo.title}}</a>
+                <i class="fa fa-angle-right"></i>
+            </li>
+            <li>
+                <a is="router-link" :to="{name: 'admin_edit_user', params: {record_id: $route.params.record_id}}">{{record.username}}</a>
+                <i class="fa fa-angle-right"></i>
+            </li>
+
+            <li><span>{{$route.meta.pageInfo.title}}</span></li>
+        </template>
+    </page-bar>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="portlet light">
+                <form role="form" @submit.prevent="changePassword">
+                    <div class="form-group">
+                        <label class="control-label">New Password</label>
+                        <input type="password" class="form-control" v-model="userPassword.password" required/>
+                    </div>
+                    <div class="form-group" :class="{'has-error': !passwordMatched}">
+                        <label class="control-label">Re-type New Password</label>
+                        <input type="password" class="form-control" v-model="userPassword.re_password" required/>
+                        <span class="help-block" v-show="!passwordMatched"> Mismatched re-type password </span>
+                    </div>
+                    <div class="margin-top-10">
+                        <button type="submit" name="submitBtn" class="btn green-haze" :disabled="!userPassword.password || !passwordMatched || changingPassword">
+                        <i :class="changingPassword? 'fa fa-spin fa-spinner':'fa fa-save'"></i>
+                        <span v-show="!changingPassword">Change Password</span>
+                        <span v-show="changingPassword">Changing</span>
+                        </button>
+                        <a is="router-link" :to="{name: 'admin_edit_user', params: {record_id: $route.params.record_id}}" class="btn btn-default"> Cancel </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</script>
+
+<script type="text/x-template" id="admin-group-list-template">
+    <div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+        <page-bar>
+            <div slot="pre-title" class="pull-right">
+                <a is="router-link" :to="{name: 'admin_new_group'}" class="btn btn-success" title="Add New Group"><i class="fa fa-plus"></i><span class="hidden-xs"> New</span></a>
+                <button class="btn btn-primary" title="Refresh Table" @click="$refs.vuetable.visibleDetailRows=[];$refs.vuetable.refresh()"><i class="fa fa-refresh"></i><span class="hidden-xs"> Refresh</span></button>
+            </div>
+        </page-bar>
+
+        <div class="panel">
+            <div class="table-responsive">
+                <vuetable ref="vuetable"
+                          loading-class="loading"
+                          :api-url="tableUrl"
+                          :fields="tableFields"
+                          :css="css.table"
+                          class="admin-groups-table"
+                          pagination-path="pagination"
+                          data-path="results"
+                          :per-page="tablePerPage"
+                          :append-params="tableFiltering"
+                          :http-options="tableHTTPOptions"
+                          :query-params="{sort: 'ordering', page: 'page', perPage: 'page_size'}"
+                          @vuetable:loaded="OnLoadedData"
+                          @vuetable:load-error="OnLoadErrorData"
+                          @vuetable:loading="OnLoadingData"
+                          @vuetable:pagination-data="onPaginationData">
+                    <template slot="name" scope="props">
+                        <a is="router-link" :to="{name: 'admin_edit_group', params: {record_id: props.rowData.id}}" class="nounderline">{{ props.rowData.name }}</a>
+                    </template>
+                    <template slot="actions" scope="props">
+                        <div class="custom-actions">
+                            <a is="router-link" :to="{name: 'admin_edit_group', params: {record_id: props.rowData.id}}" class="btn btn-sm btn-primary" title="Edit record"><span class="fa fa-pencil fa-fw"></span></a>
+                            <button class="btn btn-sm btn-danger" @click="deleteRecord(props.rowData)" title="Delete record"><span class="fa fa-trash fa-fw"></span></button>
+                        </div>
+                    </template>
+                </vuetable>
+            </div>
+            <div class="pagination-wrapper row">
+                <span>
+                    Page Size:
+                    <select class="inline form-control input-sm page-size" v-model="tablePerPage">
+                        <option v-for="p in pageSizeOptions" :value="p">{{p || 'Max'}}</option>
+                    </select>
+                </span>
+                <vuetable-pagination-info ref="paginationInfo" class="inline text-muted" info-template="Displaying <strong>{from}</strong> to <strong>{to}</strong> of <strong>{total}</strong> items.">
+                </vuetable-pagination-info>
+                <vuetable-pagination class="pull-right" ref="pagination" @vuetable-pagination:change-page="onChangePage"></vuetable-pagination>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-template" id="admin-group-form-template">
+<div class="loading-overlay-wrapper" :class="{loading: loadingOverlay}">
+    <page-bar>
+        <template slot="breadcrumb-title">
+            <li><span>{{record.name}}</span></li>
+        </template>
+    </page-bar>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="portlet light">
+                <form role="form" @submit.prevent="saveRecord">
+                    <div class="form-group">
+                        <label class="control-label">Name(*)</label>
+                        <input type="text" placeholder="Name" class="form-control" v-model="record.name" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Permissions</label>
+                        <multiselect v-model="record._permissions" :multiple="true" label="name" track-by="name" :options="$store.getters.allPermissions" placeholder="Group Permissions">
+                            <template slot="clear" slot-scope="props">
+                                <span class="fa fa-close multiselect__clear" title="Clear" v-if="record._permissions && record._permissions.length" @mousedown.prevent.stop="record._permissions=[]"></span>
+                            </template>
+                        </multiselect>
+                    </div>
+                    <div class="margiv-top-10">
+                        <button type="submit" name="submitBtn" class="btn green-haze" :disabled="saving">
+                        <i :class="saving? 'fa fa-spin fa-spinner':'fa fa-save'"></i>
+                        <span v-show="!saving">Save</span>
+                        <span v-show="saving">Saving</span>
+                        </button>
+                        <a is="router-link" :to="{name: 'admin_groups'}" class="btn btn-default">Cancel</a>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</script>
+
+<!-------------------------------------------------------------------->
+<!-------------------- END Define Vue TEMPLATES ---------------------->
+<!-------------------------------------------------------------------->
+
+<!-- BEGIN JAVASCRIPTS(Load javascripts at bottom, this will reduce page load time) -->
+<!-- BEGIN CORE PLUGINS -->
+<!--[if lt IE 9]>
+<script src="/static/assets/global/plugins/respond.min.js"></script>
+<script src="/static/assets/global/plugins/excanvas.min.js"></script>
+<![endif]-->
+<script src="/static/assets/global/plugins/jquery.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/jquery-validation/js/jquery.validate.min.js" type="text/javascript"></script>
+
+<script src="/static/assets/global/plugins/jquery-migrate.min.js" type="text/javascript"></script>
+<!-- IMPORTANT! Load jquery-ui.min.js before bootstrap.min.js to fix bootstrap tooltip conflict with jquery ui tooltip -->
+<script src="/static/assets/global/plugins/jquery-ui/jquery-ui.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/bootstrap-growl/jquery.bootstrap-growl.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/sweetalert/sweetalert.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/bootstrap-hover-dropdown/bootstrap-hover-dropdown.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/jquery-slimscroll/jquery.slimscroll.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/jquery.cokie.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/select2/select2.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/moment.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/bootstrap-datetimepicker/bootstrap-datetimepicker.min.js" type="text/javascript"></script>
+
+<!-- END CORE PLUGINS -->
+<!-- BEGIN PAGE LEVEL PLUGINS -->
+<script src="/static/assets/global/plugins/flot/jquery.flot.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/flot/jquery.flot.resize.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/flot/jquery.flot.categories.min.js" type="text/javascript"></script>
+
+<!-- IMPORTANT! fullcalendar depends on jquery-ui.min.js for drag & drop support -->
+<!-- END PAGE LEVEL PLUGINS -->
+<!-- BEGIN PAGE LEVEL SCRIPTS -->
+<script src="/static/assets/global/scripts/metronic.js" type="text/javascript"></script>
+<script src="/static/assets/admin/layout2/scripts/layout.js" type="text/javascript"></script>
+<script src="/static/assets/admin/pages/scripts/index.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/moment.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/vuejs/vue.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/vuejs/vue-router.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/vuejs/vuex.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/qs.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/vuejs/axios.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/vuetable/vuetable-2.min.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/jquery-treetable/jquery.treetable.js" type="text/javascript"></script>
+<script src="/static/assets/global/plugins/vue-multiselect/vue-multiselect.min.js" type="text/javascript"></script>
+
+<!-- include project files here -->
+<script src="/static/app/app.js" type="text/javascript"></script>
+<!-- END JAVASCRIPTS -->
+</body>
+<!-- END BODY -->
+</html>
