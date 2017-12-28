@@ -1,11 +1,103 @@
+import base64
+import datetime
+import decimal
+import os
+import random
+import string
+import uuid
+
+from django.conf import settings
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
 from django.db import IntegrityError
-from rest_framework.compat import set_rollback
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.urls import reverse
+from django.utils import timezone, six
+from django.utils.dateparse import parse_datetime
+from django.utils.timezone import is_aware, make_aware
 from rest_framework.response import Response
-from rest_framework.views import exception_handler
 from rest_framework.permissions import DjangoModelPermissions
 from django_filters.filters import EMPTY_VALUES, OrderingFilter
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.pagination import PageNumberPagination, _positive_int
+
+
+from django.contrib.auth.mixins import PermissionRequiredMixin as \
+    DjangoPermissionRequiredMixin
+
+
+class PermissionRequiredMixin(DjangoPermissionRequiredMixin):
+
+    def get_permission_required(self):
+        perms = self.permission_required or ()
+        if isinstance(perms, dict):
+            perms = perms.get(self.request.method.lower(), ()) or ()
+
+        if isinstance(perms, six.string_types):
+            perms = (perms, )
+
+        return perms
+
+    def handle_no_authenticated(self):
+        if self.request.is_ajax():
+            return JsonResponse({'error': 'Not Authorized'}, status=401)
+        return redirect_to_login(self.request.get_full_path(),
+                                 self.get_login_url(),
+                                 self.get_redirect_field_name())
+
+    def handle_no_permission(self):
+        if self.request.is_ajax():
+            return JsonResponse({'error': 'Permission Denied'}, status=403)
+        if self.raise_exception:
+            raise PermissionDenied(self.get_permission_denied_message())
+        return render(self.request, "no-permission.html", status=403)
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated():
+            return self.handle_no_authenticated()
+        if not self.has_permission():
+            return self.handle_no_permission()
+        return super(PermissionRequiredMixin, self
+                     ).dispatch(request, *args, **kwargs)
+
+
+def to_dict(obj, fields=None, fields_map=None, extra_fields=None):
+    '''
+    convert a model object to a python dict.
+    @param fields: list of fields which we want to show in return value.
+        if fields=None, we show all fields of model object
+    @type fields: list
+    @param fields_map: a map converter to show fields as a favorite.
+        every field can bind to a lambda function in fields_map.
+        if a field was bind to a None value in fields_map, we ignore this field
+        to show in result
+    @type fields_map: dict
+    '''
+    data = {}
+    fields_map = fields_map or {}
+
+    if fields is None:
+        fields = [f.name for f in obj.__class__._meta.fields]
+    fields.extend(extra_fields or [])
+    for field in fields:
+        if field in fields_map:
+            if fields_map[field] is None:
+                continue
+            v = fields_map.get(field)()
+        else:
+            v = getattr(obj, field, None)
+        if isinstance(v, datetime.datetime):
+            data[field] = v.isoformat() + 'Z'
+        elif isinstance(v, datetime.date):
+            data[field] = v.isoformat()
+        elif isinstance(v, decimal.Decimal):
+            data[field] = float(v)
+        else:
+            data[field] = v
+
+    return data
 
 
 class CustomPagination(PageNumberPagination):
@@ -68,6 +160,8 @@ class CustomPagination(PageNumberPagination):
 def custom_rest_exception_handler(exc, context):
     ''' Custom rest api exception handler '''
     from rest_framework import exceptions
+    from rest_framework.compat import set_rollback
+    from rest_framework.views import exception_handler
     response = exception_handler(exc, context)
     if isinstance(exc, IntegrityError) and ('already exists' in str(exc) or 'must make a unique set' in str(exc)):
         data = {'detail': 'duplicate unique key'}
@@ -148,3 +242,66 @@ class CustomDjangoModelPermissions(DjangoModelPermissions):
         'PATCH': ['%(app_label)s.change_%(model_name)s'],
         'DELETE': ['%(app_label)s.delete_%(model_name)s'],
     }
+
+
+def random_id(n=8, no_upper=False, no_lower=False, no_digit=False):
+    rand = random.SystemRandom()
+    chars = ''
+    if no_upper is False:
+        chars += string.ascii_uppercase
+    if no_lower is False:
+        chars += string.ascii_lowercase
+    if no_digit is False:
+        chars += string.digits
+    if not chars:
+        raise Exception('chars is empty! change function args!')
+    return ''.join([rand.choice(chars) for _ in range(n)])
+
+
+def get_random_upload_path(upload_dir, filename, include_date=False):
+    ext = filename.split('.')[-1]
+    randid = random_id(n=8)
+    filename = "{0}-{1}.{2}".format(uuid.uuid4(), randid, ext)
+    if include_date:
+        filename = '{}-{}'.format(timezone.now().strftime('%Y%m%d%H%M%S'), filename)
+    return os.path.join(upload_dir, filename)
+
+
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        data = data.read().decode()
+        if data.startswith('data:image'):
+            format, imgstr = data.split(';base64,') # format ~= data:image/X,
+            ext = format.split('/')[-1] # guess file extension
+            id = uuid.uuid4()
+            data = ContentFile(base64.b64decode(imgstr), name = id.urn[9:] + '.' + ext)
+        return super(Base64ImageField, self).to_internal_value(data)
+
+
+def get_aware_datetime(date_str):
+    ret = parse_datetime(date_str)
+    if not is_aware(ret):
+        ret = make_aware(ret)
+    return ret
+
+
+def ex_reverse(viewname, **kwargs):
+    if viewname.startswith('http://') or viewname.startswith('https://'):
+        return viewname
+
+    host = kwargs.pop('hostname', None)
+    request = kwargs.pop('request', None)
+    scheme = kwargs.pop('scheme', None)
+    if not host:
+        host = request.get_host() if request else settings.HOSTNAME
+
+    if not viewname:
+        rel_path = ''
+    elif viewname.startswith('/'):
+        rel_path = viewname
+    else:
+        rel_path = reverse(viewname, **kwargs)
+
+    scheme = '{}://'.format(scheme) if scheme else ''
+
+    return '{0}{1}{2}'.format(scheme, host, rel_path)

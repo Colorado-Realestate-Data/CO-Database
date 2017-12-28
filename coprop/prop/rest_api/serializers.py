@@ -6,7 +6,49 @@ from rest_framework.reverse import reverse
 from django.db import IntegrityError, transaction
 
 from prop.models import Property, Owner, PropertyAddress, OwnerAddress, \
-    Account, LienAuction, CountyBaseModel, County
+    Account, LienAuction, CountyBaseModel, County, UserProfile, User
+from coprop.helpers.utils import Base64ImageField
+
+
+class AvatarSerializer(serializers.ModelSerializer):
+    avatar = Base64ImageField()
+    class Meta:
+        model = UserProfile
+        fields = ('avatar',)
+
+
+class NestedProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ('birth_date', 'gender', 'avatar')
+        read_only_fields = ('avatar', )
+
+
+class UserSerializer(serializers.ModelSerializer):
+    profile = NestedProfileSerializer()
+
+    class Meta:
+        model = User
+        fields = ("id", "last_login", "is_superuser", "username", "first_name", "last_name", "email", "is_staff",
+                  "is_active", "date_joined", "groups", "user_permissions", "profile")
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    profile = NestedProfileSerializer()
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'email', 'profile', )
+
+    def update(self, instance, validated_data):
+        profile = validated_data.pop('profile', {}) or {}
+        for k, v in profile.items():
+            setattr(instance.profile, k, v)
+        return super(UserProfileSerializer, self).update(instance, validated_data)
+
+
+class SessionSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=30)
+    password = serializers.CharField(max_length=128)
 
 
 class CountySerializer(serializers.ModelSerializer):

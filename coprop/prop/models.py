@@ -1,11 +1,55 @@
+import os
 import hashlib
+
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from reversion import revisions as reversion
 from django.dispatch import receiver
 from django.db.models.signals import post_delete, post_save
+from django.contrib.auth import get_user_model
 
 from prop.middleware import get_current_county_id, clear_county_cached
+from coprop.helpers.utils import get_random_upload_path
+
+
+User = get_user_model()
+
+
+def avatar_file_path_func(instance, filename):
+    return get_random_upload_path(os.path.join('uploads', 'profile_avatar'), filename)
+
+
+class UserProfile(models.Model):
+    GENDER_UNKNOWN = 'u'
+    GENDER_MALE = 'm'
+    GENDER_FEMALE = 'f'
+    GENDER_CHOICES = (
+        (GENDER_UNKNOWN, 'Unknown'),
+        (GENDER_MALE, 'Male'),
+        (GENDER_FEMALE, 'Female'),
+    )
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, primary_key=True, related_name='profile',
+                                on_delete=models.CASCADE)
+    birth_date = models.DateField('Date of birth', blank=True, null=True)
+    gender = models.CharField('Gender', max_length=1, choices=GENDER_CHOICES, default=GENDER_UNKNOWN)
+    avatar = models.ImageField('Avatar', blank=True, null=True, upload_to=avatar_file_path_func)
+
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    try:
+        profile = instance.profile
+    except UserProfile.DoesNotExist:
+        profile = UserProfile.objects.create(user=instance)
+    profile.save()
 
 
 class County(models.Model):

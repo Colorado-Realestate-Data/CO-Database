@@ -3,16 +3,19 @@ import sys
 import simplejson as json
 from django.conf import settings
 from dateutil import parser
-from rest_framework import viewsets, serializers
+from django.contrib.auth import authenticate, login, logout
+from rest_framework import viewsets, serializers, permissions
 from rest_framework.generics import get_object_or_404
+from rest_framework.parsers import FileUploadParser
 from rest_framework.response import Response
 from rest_framework.decorators import detail_route, list_route
+from djoser.views import SetPasswordView as JoserSetPasswordView
 from django.db.models import Sum
 from reversion.models import Version
 
 from .serializers import PropertySerializer, OwnerSerializer, \
     OwnerAddressSerializer, PropertyAddressSerializer, AccountSerializer, \
-    LienAuctionSerializer, CountySerializer
+    LienAuctionSerializer, CountySerializer, UserProfileSerializer, UserSerializer, AvatarSerializer, SessionSerializer
 from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
     Account, LienAuction, County
 from .filters import PropertyFilter, AccountFilter, LienAuctionFilter, \
@@ -20,6 +23,103 @@ from .filters import PropertyFilter, AccountFilter, LienAuctionFilter, \
 
 
 COUNTY_BASE_ENDPOINT_PARAM = getattr(settings, 'COUNTY_BASE_ENDPOINT_PARAM', 'county')
+
+class SessionView(viewsets.ViewSet):
+    class SessionPermission(permissions.BasePermission):
+        ''' custom class to check permissions for sessions '''
+
+        def has_permission(self, request, view):
+            ''' check request permissions '''
+            if request.method == 'POST':
+                return True
+            return request.user.is_authenticated() and request.user.is_active
+
+    permission_classes = (SessionPermission,)
+    serializer_class = SessionSerializer
+
+    def initialize_request(self, request, *args, **kwargs):
+        request = super(SessionView, self).initialize_request(request, *args, **kwargs)
+        if request.method == 'POST':
+            # remove authentication_classes to dont check csrf
+            request.authenticators = []
+        return request
+
+    def get(self, request, *args, **kwargs):
+        ''' api to get current session '''
+
+        return Response(UserSerializer(request.user).data)
+
+    def post(self, request, *args, **kwargs):
+        ''' api to login '''
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = authenticate(**serializer.data)
+        if not user:
+            return Response({'reason': 'Username or password is incorrect'},
+                            status=400)
+        if not user.is_active:
+            return Response({'reason': 'User is inactive'}, status=403)
+
+        login(request, user)
+        return Response(UserSerializer(user).data)
+
+    def delete(self, request, *args, **kwargs):
+        ''' api to logout '''
+
+        user_id = request.user.id
+        logout(request)
+        return Response({'id': user_id})
+
+    create = post  # this is a trick to show this view in api-root
+
+
+class ProfileView(viewsets.ViewSet):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserProfileSerializer
+    parser_classes = list(viewsets.ViewSet.parser_classes) + [FileUploadParser]
+
+    def list(self, request, *args, **kwargs):
+        return Response(UserSerializer(request.user).data)
+
+    def put(self, request, *args, **kwargs):
+        serializer = self.serializer_class(instance=request.user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserSerializer(user).data)
+
+    def __update_avatar(self, request, *args, **kwargs):
+        profile = request.user.profile
+        file_obj = request.data['file']
+        serializer = AvatarSerializer(instance=profile, data={'avatar': file_obj})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        avatar_url = None
+        if profile.avatar:
+            avatar_url = profile.avatar.url
+        return Response({'avatar': avatar_url})
+
+    def __delete_avatar(self, request, *args, **kwargs):
+        profile = request.user.profile
+        profile.avatar = None
+        profile.save()
+        return Response({'avatar': None})
+
+    @list_route(methods=['delete', 'put'])
+    def avatar(self, request, *args, **kwargs):
+        if self.request.method == 'DELETE':
+            return self.__delete_avatar(request, **kwargs)
+        elif self.request.method == 'PUT':
+            return self.__update_avatar(request, **kwargs)
+
+        raise Exception('should not reach here!')
+
+    create = put
+
+
+class SetPasswordView(JoserSetPasswordView):
+    def post(self, request, *args, **kwargs):
+        return super(SetPasswordView, self).post(request)
+
 
 class CountyViewSetMixin(object):
     '''
