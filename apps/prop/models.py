@@ -9,9 +9,8 @@ from django.dispatch import receiver
 from django.db.models.signals import post_delete, post_save
 from django.contrib.auth import get_user_model
 
-from prop.middleware import get_current_county_id, clear_county_cached
-from coprop.helpers.utils import get_random_upload_path
-
+from .middleware import get_current_county_id, clear_county_cached
+from project.helpers.utils import get_random_upload_path
 
 User = get_user_model()
 
@@ -71,11 +70,11 @@ class County(models.Model):
 
 
 class CountyBaseModel(models.Model):
-    '''
+    """
     Top level entity, each entity will be linked to one,
     which might have one or more Users registered.
     Those Users are added through the admin interface.
-    '''
+    """
     county = models.ForeignKey(County, on_delete=models.CASCADE, default=get_current_county_id)
 
     class Meta:
@@ -176,6 +175,7 @@ class PropertyAddress(Address):
     idhash = models.CharField(max_length=128, editable=False, null=True)
     property = models.OneToOneField(Property, on_delete=models.CASCADE,
                                     unique=True, related_name='address')
+
     class Meta:
         unique_together = ('idhash', 'property')
 
@@ -194,7 +194,7 @@ class OwnerAddress(Address):
 
 
 class Account(CountyBaseModel):
-    property = models.ForeignKey(Property)
+    property = models.ForeignKey(Property, on_delete=models.CASCADE)
     tax_year = models.IntegerField(default=None, null=False)
     tax_type = models.CharField(max_length=64)
     effective_date = models.DateField(null=False)
@@ -208,7 +208,7 @@ class Account(CountyBaseModel):
 
 
 class LienAuction(CountyBaseModel):
-    property = models.ForeignKey(Property)
+    property = models.ForeignKey(Property, on_delete=models.CASCADE)
     face_value = models.DecimalField(max_digits=12, decimal_places=2)
     name = models.CharField(max_length=255)
     tax_year = models.IntegerField()

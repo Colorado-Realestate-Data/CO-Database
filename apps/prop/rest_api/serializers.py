@@ -5,13 +5,14 @@ from django.conf import settings
 from rest_framework.reverse import reverse
 from django.db import IntegrityError, transaction
 
-from prop.models import Property, Owner, PropertyAddress, OwnerAddress, \
+from apps.prop.models import Property, Owner, PropertyAddress, OwnerAddress, \
     Account, LienAuction, CountyBaseModel, County, UserProfile, User
-from coprop.helpers.utils import Base64ImageField
+from project.helpers.utils import Base64ImageField
 
 
 class AvatarSerializer(serializers.ModelSerializer):
     avatar = Base64ImageField()
+
     class Meta:
         model = UserProfile
         fields = ('avatar',)

@@ -12,22 +12,31 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 
 import os
 import datetime
+import environ
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-EXTERNAL_CONFIG_PATH = '/opt/webapps/coprop/etc/external_config.py'
 
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+
+ENV_PRODUCTION = "production"
+ENV_STAGING = "staging"
+ENV_DEVELOPMENT = "development"
+
+CURRENT_ENV = env.str("ENV", ENV_PRODUCTION)
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/dev/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '^9#8%rh&p)$bfzdkjlt70b^+x855u6mtsqcwdtpuxluszt5)3d'
+SECRET_KEY = env.str("SECRET_KEY", "secret")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool("DEBUG", False)
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=(
+    "*",
+))
 
 # Application definition
 
@@ -43,11 +52,11 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework',
     'reversion',
-    'prop',
-    'administration',
+    'apps.prop',
+    'apps.administration',
 ]
 
-MIDDLEWARE_CLASSES = [
+MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -58,21 +67,21 @@ MIDDLEWARE_CLASSES = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'reversion.middleware.RevisionMiddleware',
 
-    # app middlewares
-    'prop.middleware.CurrentCountyMiddleware',
+    # app middleware
+    'apps.prop.middleware.CurrentCountyMiddleware',
 ]
 
 REST_FRAMEWORK = {
-    'EXCEPTION_HANDLER': 'coprop.helpers.utils.custom_rest_exception_handler',
+    'EXCEPTION_HANDLER': 'project.helpers.utils.custom_rest_exception_handler',
     'DEFAULT_PERMISSION_CLASSES': [
-        'coprop.helpers.utils.CustomDjangoModelPermissions'
+        'project.helpers.utils.CustomDjangoModelPermissions'
     ],
     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
     'DEFAULT_VERSION': 'v1',
     'ALLOWED_VERSIONS': ['v1'],
     'VERSION_PARAM': 'version',
-    'DEFAULT_PAGINATION_CLASS': 'coprop.helpers.utils.CustomPagination',
-    'DEFAULT_FILTER_BACKENDS': ('rest_framework.filters.DjangoFilterBackend',
+    'DEFAULT_PAGINATION_CLASS': 'project.helpers.utils.CustomPagination',
+    'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',
                                 'rest_framework.filters.OrderingFilter'),
     'PAGE_SIZE': 25,
     'MAX_PAGE_SIZE_DEFAULT': 200,
@@ -115,13 +124,13 @@ JWT_AUTH = {
     'JWT_AUTH_HEADER_PREFIX': 'Codata',
 }
 
-ROOT_URLCONF = 'coprop.urls'
+ROOT_URLCONF = 'project.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            os.path.join(BASE_DIR, 'coprop', 'templates'),
+            os.path.join(BASE_DIR, 'project', 'templates'),
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -136,7 +145,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
             ],
             'libraries': {
-                'util_tags': 'coprop.templatetags.util_tags',
+                'util_tags': 'project.templatetags.util_tags',
             }
         },
     },
@@ -144,7 +153,7 @@ TEMPLATES = [
 
 BOOTSTRAP_ADMIN_SIDEBAR_MENU = True
 
-WSGI_APPLICATION = 'coprop.wsgi.application'
+WSGI_APPLICATION = 'project.wsgi.application'
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'

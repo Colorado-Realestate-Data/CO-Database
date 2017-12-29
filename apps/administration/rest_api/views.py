@@ -3,8 +3,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import detail_route
 from rest_framework.response import Response
 
-from prop.models import User
-from coprop.helpers.utils import CustomDjangoModelPermissions
+from apps.prop.models import User
+from project.helpers.utils import CustomDjangoModelPermissions
 from .filters import UserFilter, GroupFilter, PermissionFilter
 from .serializers import UserSerializer, GroupSerializer, PermissionSerializer, ChangePasswordSerializer
 

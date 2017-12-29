@@ -1,9 +1,10 @@
 import django_filters
-from prop.models import Property, Account, LienAuction
-from rest_framework import filters
+from django_filters.rest_framework import FilterSet
+
+from apps.prop.models import Property, Account, LienAuction
 
 
-class PropertyFilter(filters.FilterSet):
+class PropertyFilter(FilterSet):
     min_timestamp = django_filters.IsoDateTimeFilter(name="timestamp", lookup_expr="gte")
     max_timestamp = django_filters.IsoDateTimeFilter(name="timestamp", lookup_expr="lte")
 
@@ -12,7 +13,7 @@ class PropertyFilter(filters.FilterSet):
         fields = ["parid", "min_timestamp", "max_timestamp"]
 
 
-class AccountFilter(filters.FilterSet):
+class AccountFilter(FilterSet):
     min_tax_year = django_filters.NumberFilter(name="tax_year", lookup_expr="gte")
     max_tax_year = django_filters.NumberFilter(name="tax_year", lookup_expr="lte")
     min_amount = django_filters.NumberFilter(name="amount", lookup_expr="gte")
@@ -26,7 +27,7 @@ class AccountFilter(filters.FilterSet):
                   'amount', 'min_amount', 'max_amount', 'balance', 'min_balance', 'max_balance',]
 
 
-class AccountTaxTypeSummaryFilter(filters.FilterSet):
+class AccountTaxTypeSummaryFilter(FilterSet):
     min_tax_year = django_filters.NumberFilter(name="tax_year",
                                                lookup_expr="gte")
     max_tax_year = django_filters.NumberFilter(name="tax_year",
@@ -37,7 +38,7 @@ class AccountTaxTypeSummaryFilter(filters.FilterSet):
         fields = ['tax_year', 'min_tax_year', 'max_tax_year', 'property', ]
 
 
-class PropertyTaxTypeSummaryFilter(filters.FilterSet):
+class PropertyTaxTypeSummaryFilter(FilterSet):
     min_tax_year = django_filters.NumberFilter(name="tax_year",
                                                lookup_expr="gte")
     max_tax_year = django_filters.NumberFilter(name="tax_year",
@@ -48,7 +49,7 @@ class PropertyTaxTypeSummaryFilter(filters.FilterSet):
         fields = ['tax_year', 'min_tax_year', 'max_tax_year', 'tax_type']
 
 
-class LienAuctionFilter(filters.FilterSet):
+class LienAuctionFilter(FilterSet):
     min_tax_year = django_filters.NumberFilter(name="tax_year", lookup_expr="gte")
     max_tax_year = django_filters.NumberFilter(name="tax_year", lookup_expr="lte")
     min_face_value = django_filters.NumberFilter(name="face_value", lookup_expr="gte")

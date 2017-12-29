@@ -1,8 +1,8 @@
 from django.contrib.auth.models import Group, Permission
 from rest_framework import serializers
 
-from prop.models import UserProfile, User
-from coprop.helpers.utils import DynamicFieldsSerializerMixin
+from apps.prop.models import UserProfile, User
+from project.helpers.utils import DynamicFieldsSerializerMixin
 
 
 class NestedProfileSerializer(serializers.ModelSerializer):

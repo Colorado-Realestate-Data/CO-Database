@@ -16,20 +16,33 @@ from reversion.models import Version
 from .serializers import PropertySerializer, OwnerSerializer, \
     OwnerAddressSerializer, PropertyAddressSerializer, AccountSerializer, \
     LienAuctionSerializer, CountySerializer, UserProfileSerializer, UserSerializer, AvatarSerializer, SessionSerializer
-from prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
+from apps.prop.models import Property, Owner, OwnerAddress, PropertyAddress, \
     Account, LienAuction, County
 from .filters import PropertyFilter, AccountFilter, LienAuctionFilter, \
     AccountTaxTypeSummaryFilter, PropertyTaxTypeSummaryFilter
 
-
 COUNTY_BASE_ENDPOINT_PARAM = getattr(settings, 'COUNTY_BASE_ENDPOINT_PARAM', 'county')
+
+__all__ = (
+    "PropertyView",
+    "OwnerView",
+    "OwnerAddressView",
+    "PropertyAddressView",
+    "AccountView",
+    "LienAuctionView",
+    "CountyView",
+    "SessionView",
+    "ProfileView",
+    "SetPasswordView",
+)
+
 
 class SessionView(viewsets.ViewSet):
     class SessionPermission(permissions.BasePermission):
-        ''' custom class to check permissions for sessions '''
+        """ custom class to check permissions for sessions """
 
         def has_permission(self, request, view):
-            ''' check request permissions '''
+            """ check request permissions """
             if request.method == 'POST':
                 return True
             return request.user.is_authenticated() and request.user.is_active
@@ -45,12 +58,12 @@ class SessionView(viewsets.ViewSet):
         return request
 
     def get(self, request, *args, **kwargs):
-        ''' api to get current session '''
+        """ api to get current session """
 
         return Response(UserSerializer(request.user).data)
 
     def post(self, request, *args, **kwargs):
-        ''' api to login '''
+        """ api to login """
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = authenticate(**serializer.data)
@@ -64,7 +77,7 @@ class SessionView(viewsets.ViewSet):
         return Response(UserSerializer(user).data)
 
     def delete(self, request, *args, **kwargs):
-        ''' api to logout '''
+        """ api to logout """
 
         user_id = request.user.id
         logout(request)
@@ -122,11 +135,11 @@ class SetPasswordView(JoserSetPasswordView):
 
 
 class CountyViewSetMixin(object):
-    '''
+    """
     a base connty modelviewset class for all other viewsets.
     Notice!!! using this class in multi-inheritance as a "first" parent class.
     i.e: class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin)
-    '''
+    """
     county_object = None
     county_url_kwarg = 'county'
 
@@ -140,7 +153,6 @@ class CountyViewSetMixin(object):
 
 
 class HistoricalViewMixin(object):
-
     MAX_HISTORY_RECORDS_NUM = 100
 
     def get_history_filters_by_params(self, request, queryset):
@@ -188,6 +200,7 @@ class CountyView(viewsets.ReadOnlyModelViewSet):
         context = super(CountyView, self).get_serializer_context() or {}
         context.update({'request': self.request})
         return context
+
 
 class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
     """ rest api Property resource. """
@@ -269,20 +282,20 @@ class LienAuctionView(CountyViewSetMixin, viewsets.ModelViewSet):
     filter_class = LienAuctionFilter
     ordering = 'id'
 
-
-# #############################################################################################
-# !!! dont touch this section. we need this section to patch some views to inject some data !!!
-# #############################################################################################
-def _perd(c):
-    return inspect.isclass(c) and c.__module__ == _perd.__module__
-
-classes = inspect.getmembers(sys.modules[__name__], _perd)
-for class_name, klass in classes:
-    if not issubclass(klass, CountyViewSetMixin) or not issubclass(klass, viewsets.ModelViewSet):
-        continue
-    if getattr(klass, 'ordering_fields') == '__all__':
-        qs = getattr(klass, 'queryset', None)
-        model = qs and getattr(qs, 'model', None)
-        if not model:
-            continue
-        klass.ordering_fields = [f.name for f in model._meta.fields if f.name != 'county']
+#############################################################################################
+### !!! dont touch this section. we need this section to patch some views to inject some data !!!
+#############################################################################################
+# def _perd(c):
+#     return inspect.isclass(c) and c.__module__ == _perd.__module__
+#
+#
+# classes = inspect.getmembers(sys.modules[__name__], _perd)
+# for class_name, klass in classes:
+#     if not issubclass(klass, CountyViewSetMixin) or not issubclass(klass, viewsets.ModelViewSet):
+#         continue
+#     if getattr(klass, 'ordering_fields') == '__all__':
+#         qs = getattr(klass, 'queryset', None)
+#         model = qs and getattr(qs, 'model', None)
+#         if not model:
+#             continue
+#         klass.ordering_fields = [f.name for f in model._meta.fields if f.name != 'county']

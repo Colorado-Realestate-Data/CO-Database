@@ -4,7 +4,6 @@ from django.http import JsonResponse
 from threading import local
 from django.core.cache import cache
 
-
 CURRENT_COUNTY_ATTR_NAME = getattr(settings, 'CURRENT_COUNTY_ATTR_NAME', '_current_county')
 COUNTY_BASE_ENDPOINT_PARAM = getattr(settings, 'COUNTY_BASE_ENDPOINT_PARAM', 'county')
 _thread_locals = local()
@@ -15,18 +14,19 @@ def _do_set_current_county(county_func):
 
 
 def _set_current_county(county=None):
-    '''
+    """
     Sets current county in local thread.
 
     Can be used as a hook e.g. for shell jobs (when request object is not available).
-    '''
+    """
     _do_set_current_county(lambda self: county)
 
 
 COUNTY_CACHE_KEY = cache_key = 'middleware-county-{county_name}'
 
+
 def get_county_cached(county_name):
-    from prop.models import County
+    from apps.prop.models import County
     cache_key = COUNTY_CACHE_KEY.format(county_name=county_name)
     NOT_EXISTS = object()
     county = cache.get(cache_key, NOT_EXISTS)
@@ -43,7 +43,7 @@ def clear_county_cached(county_name):
     cache.delete(cache_key)
 
 
-class CurrentCountyMiddleware(object):
+class CurrentCountyMiddleware:
 
     def process_view(self, request, view_func, view_args, view_kwargs):
         if COUNTY_BASE_ENDPOINT_PARAM in view_kwargs:

@@ -4,7 +4,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from coprop.helpers.utils import PermissionRequiredMixin
+from project.helpers.utils import PermissionRequiredMixin
 
 
 @method_decorator(csrf_exempt, name='dispatch')

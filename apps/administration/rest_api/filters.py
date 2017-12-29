@@ -3,12 +3,12 @@ import operator
 from functools import reduce
 from django.contrib.auth.models import Group, Permission
 from django.db.models import Q
-from rest_framework import filters
+from django_filters.rest_framework import FilterSet
 
-from prop.models import User
+from apps.prop.models import User
 
 
-class UserFilter(filters.FilterSet):
+class UserFilter(FilterSet):
     min_date_joined = django_filters.IsoDateTimeFilter(name="date_joined", lookup_expr="gte")
     max_date_joined = django_filters.IsoDateTimeFilter(name="date_joined", lookup_expr="lte")
     min_last_login = django_filters.IsoDateTimeFilter(name="last_login", lookup_expr="gte")
@@ -25,14 +25,14 @@ class UserFilter(filters.FilterSet):
         fields = ['is_superuser', 'username', 'email', 'is_staff', 'is_active']
 
 
-class GroupFilter(filters.FilterSet):
+class GroupFilter(FilterSet):
 
     class Meta:
         model = Group
         fields = ['name']
 
 
-class PermissionFilter(filters.FilterSet):
+class PermissionFilter(FilterSet):
     codename = django_filters.BaseInFilter(name='codename')
 
     class Meta:
