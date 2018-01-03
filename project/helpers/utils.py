@@ -55,7 +55,7 @@ class PermissionRequiredMixin(DjangoPermissionRequiredMixin):
         return render(self.request, "no-permission.html", status=403)
 
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated():
+        if not request.user.is_authenticated:
             return self.handle_no_authenticated()
         if not self.has_permission():
             return self.handle_no_permission()

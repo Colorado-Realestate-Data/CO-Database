@@ -24,6 +24,6 @@ class LoginView(View):
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated():
-            next = request.GET.get('next') or settings.LOGIN_REDIRECT_URL
-            return redirect(next)
+            next_url = request.GET.get('next') or settings.LOGIN_REDIRECT_URL
+            return redirect(next_url)
         return render(request, self.template_name)

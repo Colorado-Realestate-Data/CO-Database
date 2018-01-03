@@ -140,6 +140,7 @@ class CountyViewSetMixin(object):
     Notice!!! using this class in multi-inheritance as a "first" parent class.
     i.e: class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin)
     """
+
     county_object = None
     county_url_kwarg = 'county'
 
@@ -202,12 +203,16 @@ class CountyView(viewsets.ReadOnlyModelViewSet):
         return context
 
 
+def get_ordering_fields(model):
+    return [f.name for f in model._meta.fields if f.name != 'county']
+
+
 class PropertyView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
     """ rest api Property resource. """
 
     queryset = Property.objects.all()
     serializer_class = PropertySerializer
-    ordering_fields = '__all__'
+    ordering_fields = get_ordering_fields(Property)
     ordering = 'id'
     filter_class = PropertyFilter
 
@@ -231,7 +236,7 @@ class OwnerView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
     serializer_class = OwnerSerializer
     filter_fields = ('name', 'dba', 'ownico', 'other', 'timestamp', 'properties')
     ordering = 'id'
-    ordering_fields = '__all__'
+    ordering_fields = get_ordering_fields(Owner)
 
 
 class OwnerAddressView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalViewMixin):
@@ -241,7 +246,7 @@ class OwnerAddressView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalView
     serializer_class = OwnerAddressSerializer
     filter_fields = ('idhash', 'street1', 'street2', 'city', 'state', 'zipcode', 'zip4', 'standardized',
                      'tiger_line_id', 'tiger_line_side', 'timestamp', 'owner')
-    ordering_fields = '__all__'
+    ordering_fields = get_ordering_fields(OwnerAddress)
     ordering = 'id'
 
 
@@ -252,7 +257,7 @@ class PropertyAddressView(CountyViewSetMixin, viewsets.ModelViewSet, HistoricalV
     serializer_class = PropertyAddressSerializer
     filter_fields = ('idhash', 'street1', 'street2', 'city', 'state', 'zipcode', 'zip4', 'standardized',
                      'tiger_line_id', 'tiger_line_side', 'timestamp', 'property')
-    ordering_fields = '__all__'
+    ordering_fields = get_ordering_fields(PropertyAddress)
     ordering = 'id'
 
 
@@ -261,7 +266,7 @@ class AccountView(CountyViewSetMixin, viewsets.ModelViewSet):
 
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
-    ordering_fields = '__all__'
+    ordering_fields = get_ordering_fields(Account)
     filter_class = AccountFilter
     ordering = 'id'
 
@@ -278,24 +283,6 @@ class LienAuctionView(CountyViewSetMixin, viewsets.ModelViewSet):
 
     queryset = LienAuction.objects.all()
     serializer_class = LienAuctionSerializer
-    ordering_fields = '__all__'
+    ordering_fields = get_ordering_fields(LienAuction)
     filter_class = LienAuctionFilter
     ordering = 'id'
-
-#############################################################################################
-### !!! dont touch this section. we need this section to patch some views to inject some data !!!
-#############################################################################################
-# def _perd(c):
-#     return inspect.isclass(c) and c.__module__ == _perd.__module__
-#
-#
-# classes = inspect.getmembers(sys.modules[__name__], _perd)
-# for class_name, klass in classes:
-#     if not issubclass(klass, CountyViewSetMixin) or not issubclass(klass, viewsets.ModelViewSet):
-#         continue
-#     if getattr(klass, 'ordering_fields') == '__all__':
-#         qs = getattr(klass, 'queryset', None)
-#         model = qs and getattr(qs, 'model', None)
-#         if not model:
-#             continue
-#         klass.ordering_fields = [f.name for f in model._meta.fields if f.name != 'county']
