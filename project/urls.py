@@ -14,11 +14,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
 from django.conf import settings
-from django.urls import re_path
+from django.urls import path
 from django.views.static import serve
 from django.conf.urls import url, include
 from django.contrib import admin
-from rest_framework import routers
 from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token, \
     verify_jwt_token
 
@@ -34,7 +33,7 @@ DEFAULT_VERSION = settings.REST_FRAMEWORK.get('DEFAULT_VERSION', 'v1')
 API_ENDPOINT = 'api/(?P<{}>v\d+)'.format(VERSION_PARAM)
 
 urlpatterns = [
-    re_path(r'', include('apps.prop.urls')),
+    path('', include('apps.prop.urls')),
     url(r'^{}/me/password'.format(API_ENDPOINT), SetPasswordView.as_view()),
     url(r'^{}/admin/'.format(API_ENDPOINT), include('apps.administration.urls')),
     url(r'^admin/', admin.site.urls),

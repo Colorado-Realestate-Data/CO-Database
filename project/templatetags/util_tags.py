@@ -11,7 +11,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
-from coprop.helpers.utils import get_aware_datetime
+from project.helpers.utils import get_aware_datetime
 
 register = template.Library()
 

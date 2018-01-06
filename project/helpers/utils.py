@@ -64,7 +64,7 @@ class PermissionRequiredMixin(DjangoPermissionRequiredMixin):
 
 
 def to_dict(obj, fields=None, fields_map=None, extra_fields=None):
-    '''
+    """
     convert a model object to a python dict.
     @param fields: list of fields which we want to show in return value.
         if fields=None, we show all fields of model object
@@ -74,7 +74,7 @@ def to_dict(obj, fields=None, fields_map=None, extra_fields=None):
         if a field was bind to a None value in fields_map, we ignore this field
         to show in result
     @type fields_map: dict
-    '''
+    """
     data = {}
     fields_map = fields_map or {}
 
@@ -101,7 +101,7 @@ def to_dict(obj, fields=None, fields_map=None, extra_fields=None):
 
 
 class CustomPagination(PageNumberPagination):
-    ''' Custom Pagination to be used in rest api'''
+    """ Custom Pagination to be used in rest api"""
 
     BIG_PAGE_SIZE = 10000000
     page_size_query_param = 'page_size'
@@ -116,10 +116,10 @@ class CustomPagination(PageNumberPagination):
         return super(CustomPagination, self).paginate_queryset(queryset, request, view=view)
 
     def get_page_size(self, request):
-        '''
+        """
         this is overrided to allow 0 as a page_size.
         if page_size=0, we will set page_size as max_page_size.
-        '''
+        """
         page_size = self.page_size
         if self.page_size_query_param:
             try:
@@ -135,7 +135,7 @@ class CustomPagination(PageNumberPagination):
         return page_size
 
     def get_paginated_response(self, data):
-        ''' override pagination structure in list rest api '''
+        """ override pagination structure in list rest api """
 
         next_page = self.page.next_page_number() if \
             self.page.has_next() else None
@@ -158,7 +158,7 @@ class CustomPagination(PageNumberPagination):
 
 
 def custom_rest_exception_handler(exc, context):
-    ''' Custom rest api exception handler '''
+    """ Custom rest api exception handler """
     from rest_framework import exceptions
     from rest_framework.compat import set_rollback
     from rest_framework.views import exception_handler
@@ -177,7 +177,7 @@ def custom_rest_exception_handler(exc, context):
 
 
 class DynamicFieldsSerializerMixin(object):
-    '''
+    """
     This class allow you to have dynamic fields in get rest api.
     user can pass "fields" and "xfields" as a get query parameter.
     "fields" specify list of fields you want to be shown as a result.
@@ -186,7 +186,7 @@ class DynamicFieldsSerializerMixin(object):
     fields=id,name
     or
     xfields=name1,name2
-    '''
+    """
     def __init__(self, *args, **kwargs):
         super(DynamicFieldsSerializerMixin, self).__init__(*args, **kwargs)
         if not self.context:

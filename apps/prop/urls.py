@@ -30,6 +30,6 @@ general_rest_router.register(r'me', ProfileView, base_name='profile')
 app_name = 'prop'
 
 urlpatterns = [
-    url(r'^{}/', include(general_rest_router.urls)),
+    url(r'^{}/'.format(API_ENDPOINT), include(general_rest_router.urls)),
     url(r'^(?P<{}>[^/]+)/{}/'.format(COUNTY_BASE_ENDPOINT_PARAM, API_ENDPOINT), include(county_base_rest_router.urls)),
 ]

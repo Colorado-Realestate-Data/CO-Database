@@ -23,7 +23,7 @@ class LoginView(View):
     template_name = "login.html"
 
     def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated():
+        if request.user.is_authenticated:
             next_url = request.GET.get('next') or settings.LOGIN_REDIRECT_URL
             return redirect(next_url)
         return render(request, self.template_name)
