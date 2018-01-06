@@ -44,6 +44,11 @@ def clear_county_cached(county_name):
 
 
 class CurrentCountyMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
 
     def process_view(self, request, view_func, view_args, view_kwargs):
         if COUNTY_BASE_ENDPOINT_PARAM in view_kwargs:
@@ -54,9 +59,7 @@ class CurrentCountyMiddleware:
             if county and not county.get('active'):
                 return JsonResponse({'error': '[{}] county is not active!'.format(county_name)}, status=404)
             setattr(request, COUNTY_BASE_ENDPOINT_PARAM, county)
-            return None
         _do_set_current_county(lambda self: getattr(request, COUNTY_BASE_ENDPOINT_PARAM, None))
-        return None
 
 
 def get_current_county():

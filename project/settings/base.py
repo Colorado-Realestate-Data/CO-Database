@@ -69,7 +69,7 @@ MIDDLEWARE = [
     'reversion.middleware.RevisionMiddleware',
 
     # app middleware
-    # 'apps.prop.middleware.CurrentCountyMiddleware',
+    'apps.prop.middleware.CurrentCountyMiddleware',
 ]
 
 REST_FRAMEWORK = {
