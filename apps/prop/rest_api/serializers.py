@@ -53,20 +53,6 @@ class SessionSerializer(serializers.Serializer):
 
 
 class CountySerializer(serializers.ModelSerializer):
-    api_url = serializers.SerializerMethodField('api_root_url')
-
-    def api_root_url(self, obj):
-        COUNTY_BASE_ENDPOINT_PARAM = getattr(settings, 'COUNTY_BASE_ENDPOINT_PARAM', 'county')
-        VERSION_PARAM = settings.REST_FRAMEWORK.get('VERSION_PARAM', 'version')
-        DEFAULT_VERSION = settings.REST_FRAMEWORK.get('DEFAULT_VERSION', 'v1')
-        version = DEFAULT_VERSION
-        request = self.context.get("request")
-        if request:
-            version = getattr(request, VERSION_PARAM, DEFAULT_VERSION) or DEFAULT_VERSION
-        url = reverse('county_base_rest_api:api-root',
-                      kwargs={COUNTY_BASE_ENDPOINT_PARAM: obj.name, VERSION_PARAM: version}, request=request)
-        return url
-
     class Meta:
         model = County
         fields = '__all__'
