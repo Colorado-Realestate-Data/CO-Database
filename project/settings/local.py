@@ -14,4 +14,4 @@ if 'RDS_DB_NAME' in os.environ and os.environ['RDS_DB_NAME']:
 
 
 if CURRENT_ENV == ENV_PRODUCTION:
-    STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
+    STATIC_ROOT = os.path.join(BASE_DIR, "www", "collected_static")
