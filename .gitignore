@@ -70,5 +70,5 @@ target/
 # tmp dirs
 assessor-downloads/
 treasurer-downloads/
-
+.env
 

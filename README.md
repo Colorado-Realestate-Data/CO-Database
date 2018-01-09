@@ -28,3 +28,60 @@ password: test1234
 * Lien holder: the person or company that purchased the tax lien from the county at auction.
 * Tax Lien or Lien: The right to possess a property belonging to another person until a debt owed by that person is discharged. For a tax lien possess does not nessasarily happen but could. The loen hold earns interest on the debt.
 * Lien sale price, Lien premium: Unpaid tax is sold as a lien. The lien is sold at auction, starting price is the tax owed. The Lien premium is the amount paid more than the tax. For example: Parcel R300935 had unpaid tax for 2012. The tax amount was (tax year = 2012,	Tax Charge	on 1/1/13	$1,145.20) The lien sold at auction (tax year = 2012,	Lien sold	11/7/13	$1,249.36) 1249.36-1145.20 = 104.16, 104.16 is the premium. [data from here](https://ecomm.co.grand.co.us/treasurer/treasurerweb/account.jsp?account=R300935&action=tx)
+
+
+
+# Settings
+## Create environment file using **.env_template** file in root directory
+## Use **.env** file for all environments(development, staging, production)
+    
+    $ cp .env_template .env
+
+
+# AWS
+
+## Update pip
+### If you’re using Python 2 run:
+
+	$ sudo pip install --upgrade pip
+
+### For Python 3:
+
+	$ sudo pip3 install --upgrade pip
+
+## Install Elastic Beanstalk CLI
+### For Python 2:
+
+	$ pip install --upgrade --user awsebcli
+
+### For Python 3:
+
+	$ pip3 install --upgrade --user awsebcli
+
+## Adding to path
+### Add the following line at the end of ~/.profile
+
+	$ export PATH=~/.local/bin:$PATH
+
+
+## EB CLI
+### Initialize elastic beanstalk
+
+    $ eb init
+    
+### To create a new app you should type
+
+    $ eb create
+    
+### After every change commit files using git
+### Then deploy
+
+    $ eb deploy
+
+### or
+
+    $ eb deploy <env_name>
+    
+### Once it's finished you will be able to open it
+
+    $ eb open
