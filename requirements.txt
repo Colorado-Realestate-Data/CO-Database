@@ -7,7 +7,7 @@ djangorestframework-filters==0.8.0
 djangorestframework-jwt==1.11.0
 django-simple-history==1.8.2
 django-reversion==2.0.8
-psycopg2==2.7.3
+psycopg2-binary==2.7.5
 python-dateutil==2.6.1
 requests==2.18.1
 beautifulsoup4==4.6.0
